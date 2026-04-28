@@ -1,7 +1,7 @@
-name: Build and push Docker image
+name: Build and deploy image to development cluster
 
 on:
-  pull_request:
+  push:
     branches:
       - develop
 
