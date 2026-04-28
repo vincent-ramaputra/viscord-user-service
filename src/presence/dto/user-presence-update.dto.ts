@@ -1,5 +1,4 @@
-
 export interface UserPresenceUpdateDTO {
-    isOnline: boolean;
-    userId: string;
+  isOnline: boolean;
+  userId: string;
 }

@@ -1,4 +1,11 @@
-import { Body, forwardRef, HttpStatus, Inject, Injectable, ValidationPipe } from '@nestjs/common';
+import {
+  Body,
+  forwardRef,
+  HttpStatus,
+  Inject,
+  Injectable,
+  ValidationPipe,
+} from '@nestjs/common';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
 import { UserProfile } from './entities/user-profile.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -7,39 +14,46 @@ import { Result } from 'src/interfaces/result.interface';
 import { mapper } from 'src/mappings/mappers';
 import { createMap } from '@automapper/core';
 import { UserProfileResponseDTO } from './dto/user-profile-response.dto';
-import { UpdateStatusDTO } from "src/users/dto/update-status.dto";
-import { StorageService } from "src/storage/storage.service";
-import { UpdateUsernameDTO } from "src/users/dto/update-username.dto";
-import { ClientProxy, ClientProxyFactory, Transport } from "@nestjs/microservices";
-import { GATEWAY_QUEUE, USER_PROFILE_UPDATE_EVENT } from "src/constants/events";
-import { UserStatusUpdateDTO } from "src/user-profiles/dto/user-status-update.dto";
-import { Payload } from "src/interfaces/payload.dto";
-import axios from "axios";
-import { firstValueFrom } from "rxjs";
-import { UserStatus } from "./enums/user-status.enum";
-import { RelationshipsService } from "src/relationships/relationships.service";
-import { UpdateUserProfileDto } from "./dto/update-user-profile.dto";
+import { UpdateStatusDTO } from 'src/users/dto/update-status.dto';
+import { StorageService } from 'src/storage/storage.service';
+import { UpdateUsernameDTO } from 'src/users/dto/update-username.dto';
+import {
+  ClientProxy,
+  ClientProxyFactory,
+  Transport,
+} from '@nestjs/microservices';
+import { GATEWAY_QUEUE, USER_PROFILE_UPDATE_EVENT } from 'src/constants/events';
+import { UserStatusUpdateDTO } from 'src/user-profiles/dto/user-status-update.dto';
+import { Payload } from 'src/interfaces/payload.dto';
+import axios from 'axios';
+import { firstValueFrom } from 'rxjs';
+import { UserStatus } from './enums/user-status.enum';
+import { RelationshipsService } from 'src/relationships/relationships.service';
+import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 
 @Injectable()
 export class UserProfilesService {
-  private gatewayMQ: ClientProxy
+  private gatewayMQ: ClientProxy;
   constructor(
     private readonly storageService: StorageService,
-    @Inject(forwardRef(() => RelationshipsService)) private readonly relationshipsService: RelationshipsService,
-    @InjectRepository(UserProfile) private readonly userProfileRepository: Repository<UserProfile>,
+    @Inject(forwardRef(() => RelationshipsService))
+    private readonly relationshipsService: RelationshipsService,
+    @InjectRepository(UserProfile)
+    private readonly userProfileRepository: Repository<UserProfile>,
   ) {
     this.gatewayMQ = ClientProxyFactory.create({
       transport: Transport.RMQ,
       options: {
         urls: [`amqp://${process.env.RMQ_HOST}:${process.env.RMQ_PORT}`],
         queue: GATEWAY_QUEUE,
-        queueOptions: { durable: true }
-      }
-    })
+        queueOptions: { durable: true },
+      },
+    });
   }
 
-
-  async create(dto: CreateUserProfileDto): Promise<Result<UserProfileResponseDTO>> {
+  async create(
+    dto: CreateUserProfileDto,
+  ): Promise<Result<UserProfileResponseDTO>> {
     const validationMessage = dto.validate();
     if (validationMessage) {
       return {
@@ -50,28 +64,32 @@ export class UserProfilesService {
     }
 
     dto.username = dto.username.toLowerCase();
-    const user = await this.userProfileRepository.findOneBy({ username: dto.username });
-
+    const user = await this.userProfileRepository.findOneBy({
+      username: dto.username,
+    });
     if (user) {
       return {
         status: HttpStatus.BAD_REQUEST,
-        message: "This username is already used",
+        message: 'This username is already used',
         data: null,
       };
     }
 
     const userProfile = mapper.map(dto, CreateUserProfileDto, UserProfile);
-    const defaultAvatarsURL: string[] = await this.storageService.getFiles(process.env.AWS_BUCKET, process.env.IMAGE_ASSET_PATH);
-    const randomIndex = Math.floor(Math.random() * defaultAvatarsURL.length);
+    const defaultAvatarURLs: string[] = await this.storageService.getFiles(
+      process.env.AWS_BUCKET,
+      process.env.IMAGE_ASSET_PATH,
+    );
+    const randomIndex = Math.floor(Math.random() * defaultAvatarURLs.length);
 
-    userProfile.defaultAvatarURL = defaultAvatarsURL[randomIndex];
+    userProfile.defaultAvatarURL = defaultAvatarURLs[randomIndex];
 
     await this.userProfileRepository.save(userProfile);
 
     return {
       status: HttpStatus.CREATED,
       message: 'User profile created successfully',
-      data: mapper.map(userProfile, UserProfile, UserProfileResponseDTO)
+      data: mapper.map(userProfile, UserProfile, UserProfileResponseDTO),
     };
   }
 
@@ -80,48 +98,54 @@ export class UserProfilesService {
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
-        message: "Invalid request",
+        message: 'Invalid request',
       };
     }
 
     try {
-      const userProfile: UserProfile = await this.userProfileRepository.findOneBy({ id: id });
+      const userProfile: UserProfile =
+        await this.userProfileRepository.findOneBy({ id: id });
 
       if (!userProfile) {
         return {
           status: HttpStatus.BAD_REQUEST,
           data: null,
-          message: "User not found",
+          message: 'User not found',
         };
       }
 
       return {
         status: HttpStatus.OK,
         data: mapper.map(userProfile, UserProfile, UserProfileResponseDTO),
-        message: "User profile retrieved successfully"
+        message: 'User profile retrieved successfully',
       };
-
     } catch (error) {
-      console.log(error)
+      console.log(error);
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
-        message: "An unknown error occurred",
+        message: 'An unknown error occurred',
       };
     }
   }
 
-  async updateStatus(@Body(new ValidationPipe({ transform: true })) dto: UpdateStatusDTO): Promise<Result<null>> {
+  async updateStatus(
+    @Body(new ValidationPipe({ transform: true })) dto: UpdateStatusDTO,
+  ): Promise<Result<null>> {
     const userResponse = await this.getById(dto.userId);
 
     if (userResponse.status != HttpStatus.OK) {
       return {
         status: HttpStatus.BAD_REQUEST,
         message: userResponse.message,
-        data: null
+        data: null,
       };
     }
-    const userProfile = mapper.map(userResponse.data, UserProfileResponseDTO, UserProfile);
+    const userProfile = mapper.map(
+      userResponse.data,
+      UserProfileResponseDTO,
+      UserProfile,
+    );
 
     try {
       const previousStatus = userProfile.status;
@@ -129,30 +153,30 @@ export class UserProfilesService {
       userProfile.status = dto.status;
       await this.userProfileRepository.save(userProfile);
 
-
       if (dto.status === UserStatus.Invisible) {
         this.relationshipsService.emitUserOffline(dto.userId);
-      }
-      else if (previousStatus === UserStatus.Invisible) {
+      } else if (previousStatus === UserStatus.Invisible) {
         this.relationshipsService.emitUserOnline(dto.userId);
       }
-
     } catch (error) {
-      console.log(error)
+      console.log(error);
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
-        message: "An error occurred when updating user status",
+        message: 'An error occurred when updating user status',
       };
     }
 
-
-    const profileDTO = mapper.map(userProfile, UserProfile, UserProfileResponseDTO);
+    const profileDTO = mapper.map(
+      userProfile,
+      UserProfile,
+      UserProfileResponseDTO,
+    );
 
     const payload: Payload<UserProfileResponseDTO> = {
       recipients: [],
       targetIds: [profileDTO.id],
-      data: profileDTO
+      data: profileDTO,
     };
 
     try {
@@ -161,21 +185,22 @@ export class UserProfilesService {
       console.error(error);
     }
 
-
     return {
       status: HttpStatus.OK,
-      message: "Status updated successfully",
-      data: null
+      message: 'Status updated successfully',
+      data: null,
     };
-
   }
-  async updateUsername(id: string, dto: UpdateUsernameDTO): Promise<Result<any>> {
+  async updateUsername(
+    id: string,
+    dto: UpdateUsernameDTO,
+  ): Promise<Result<any>> {
     const validateResult = dto.validate();
     if (validateResult) {
       return {
         status: HttpStatus.BAD_REQUEST,
         message: validateResult,
-        data: null
+        data: null,
       };
     }
 
@@ -184,73 +209,87 @@ export class UserProfilesService {
     return {
       status: HttpStatus.OK,
       message: 'Username updated successfully',
-      data: null
+      data: null,
     };
   }
 
-  async getProfileByUsername(username: string): Promise<Result<UserProfileResponseDTO>> {
+  async getProfileByUsername(
+    username: string,
+  ): Promise<Result<UserProfileResponseDTO>> {
     if (!username || username.length == 0) {
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
-        message: "Invalid request",
+        message: 'Invalid request',
       };
     }
 
     try {
-      const user: UserProfile = await this.userProfileRepository.findOne({ where: { username: username } });
+      const user: UserProfile = await this.userProfileRepository.findOne({
+        where: { username: username },
+      });
 
       if (!user) {
         return {
           status: HttpStatus.BAD_REQUEST,
           data: null,
-          message: "User not found",
+          message: 'User not found',
         };
       }
 
       return {
         status: HttpStatus.OK,
         data: mapper.map(user, UserProfile, UserProfileResponseDTO),
-        message: "User profile retrieved successfully"
+        message: 'User profile retrieved successfully',
       };
     } catch (error) {
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
-        message: "User not found",
+        message: 'User not found',
       };
     }
   }
 
-  async getUserProfiles(userIds: string[]): Promise<Result<UserProfileResponseDTO[]>> {
+  async getUserProfiles(
+    userIds: string[],
+  ): Promise<Result<UserProfileResponseDTO[]>> {
     try {
-      const userProfiles: UserProfile[] = await this.userProfileRepository.findBy({ id: In(userIds) });
+      const userProfiles: UserProfile[] =
+        await this.userProfileRepository.findBy({ id: In(userIds) });
       return {
         status: HttpStatus.OK,
-        data: userProfiles.map(user => mapper.map(user, UserProfile, UserProfileResponseDTO)),
-        message: "User profile retrieved successfully"
+        data: userProfiles.map((user) =>
+          mapper.map(user, UserProfile, UserProfileResponseDTO),
+        ),
+        message: 'User profile retrieved successfully',
       };
     } catch (error) {
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
-        message: "User not found",
+        message: 'User not found',
       };
     }
   }
 
-  async updateUserProfile(dto: UpdateUserProfileDto): Promise<Result<UserProfileResponseDTO>> {
+  async updateUserProfile(
+    dto: UpdateUserProfileDto,
+  ): Promise<Result<UserProfileResponseDTO>> {
     const profile = await this.userProfileRepository.findOneBy({ id: dto.id });
 
     if (!profile) {
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
-        message: 'Profile not found'
+        message: 'Profile not found',
       };
     }
 
-    profile.displayName = !dto.displayName || dto.displayName.length === 0 ? profile.username : dto.displayName;
+    profile.displayName =
+      !dto.displayName || dto.displayName.length === 0
+        ? profile.username
+        : dto.displayName;
     profile.bio = dto.bio;
     profile.pronouns = dto.pronouns;
 
@@ -261,7 +300,7 @@ export class UserProfilesService {
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         data: null,
-        message: 'An error occurred while saving profile'
+        message: 'An error occurred while saving profile',
       };
     }
 
@@ -271,8 +310,8 @@ export class UserProfilesService {
       this.gatewayMQ.emit(USER_PROFILE_UPDATE_EVENT, {
         recipients: [],
         targetIds: [profile.id],
-        data: profileDTO
-      } as Payload<UserProfileResponseDTO>)
+        data: profileDTO,
+      } as Payload<UserProfileResponseDTO>);
     } catch (error) {
       console.error(error);
     }
@@ -280,15 +319,13 @@ export class UserProfilesService {
     return {
       status: HttpStatus.OK,
       data: profileDTO,
-      message: 'User profile updated successfully'
+      message: 'User profile updated successfully',
     };
   }
-
 
   onModuleInit() {
     createMap(mapper, CreateUserProfileDto, UserProfile);
     createMap(mapper, UserProfile, UserProfileResponseDTO);
     createMap(mapper, UserProfileResponseDTO, UserProfile);
   }
-
 }

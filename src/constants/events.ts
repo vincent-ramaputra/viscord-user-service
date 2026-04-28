@@ -1,4 +1,3 @@
-
 export const USER_QUEUE = 'user_queue';
 export const GATEWAY_QUEUE = 'gateway_queue';
 export const CHANNEL_QUEUE = 'channel_queue';
@@ -11,14 +10,14 @@ export const CLIENT_READY_EVENT = 'client_ready';
 export const USER_ONLINE_EVENT = 'user_online';
 export const USER_PRESENCE_UPDATE_EVENT = 'user_presence_update';
 export const USER_OFFLINE_EVENT = 'user_offline';
-export const USER_PROFILE_UPDATE_EVENT = 'user_profile_update'
+export const USER_PROFILE_UPDATE_EVENT = 'user_profile_update';
 
-export const USER_TYPING_EVENT = 'user_typing'
+export const USER_TYPING_EVENT = 'user_typing';
 export const MESSAGE_RECEIVED_EVENT = 'message_received';
 
 export const GET_RELATIONSHIPS_EVENT = 'get_relationships';
 export const GET_GUILDS_EVENT = 'get_guilds';
-export const GET_DM_CHANNELS_EVENT = 'get_dm_channels'
+export const GET_DM_CHANNELS_EVENT = 'get_dm_channels';
 
 export const GET_USERS_PRESENCE_EVENT = 'get_users_presence';
 export const GET_USERS_PRESENCE_RESPONSE_EVENT = 'get_users_presence_response';

@@ -1,19 +1,19 @@
-import { AutoMap } from "@automapper/classes"
-import { RelationshipType } from "../enums/relationship-type.enum"
-import { UserProfileResponseDTO } from "src/user-profiles/dto/user-profile-response.dto"
+import { AutoMap } from '@automapper/classes';
+import { RelationshipType } from '../enums/relationship-type.enum';
+import { UserProfileResponseDTO } from 'src/user-profiles/dto/user-profile-response.dto';
 
 export class RelationshipResponseDTO {
-    @AutoMap()
-    id: string
+  @AutoMap()
+  id: string;
 
-    user: UserProfileResponseDTO
+  user: UserProfileResponseDTO;
 
-    @AutoMap()
-    type: RelationshipType
+  @AutoMap()
+  type: RelationshipType;
 
-    @AutoMap()
-    createdAt: Date
+  @AutoMap()
+  createdAt: Date;
 
-    @AutoMap()
-    updatedAt: Date
+  @AutoMap()
+  updatedAt: Date;
 }
