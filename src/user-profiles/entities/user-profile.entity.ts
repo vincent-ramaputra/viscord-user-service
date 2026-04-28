@@ -2,9 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  OneToOne,
   PrimaryColumn,
-  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { UserStatus } from '../enums/user-status.enum';

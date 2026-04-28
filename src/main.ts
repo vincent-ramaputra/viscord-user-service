@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { hostname } from 'os';
 import { USER_QUEUE } from './constants/events';
 import { join } from 'path';
 

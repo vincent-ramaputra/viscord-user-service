@@ -11,7 +11,6 @@ import { RelationshipResponseDTO } from './dto/relationship-response.dto';
 import {
   ClientProxy,
   ClientProxyFactory,
-  MessagePattern,
   Transport,
 } from '@nestjs/microservices';
 import { mapper } from 'src/mappings/mappers';
@@ -22,9 +21,6 @@ import {
   FRIEND_REMOVED_EVENT,
   FRIEND_REQUEST_RECEIVED_EVENT,
   GATEWAY_QUEUE,
-  GET_USERS_PRESENCE_RESPONSE_EVENT,
-  USER_OFFLINE_EVENT,
-  USER_ONLINE_EVENT,
   USER_PRESENCE_UPDATE_EVENT,
 } from 'src/constants/events';
 import { UserStatus } from 'src/user-profiles/enums/user-status.enum';
@@ -413,6 +409,7 @@ export class RelationshipsService {
         };
       }
     } catch (error) {
+      console.log(error);
       return {
         status: HttpStatus.BAD_REQUEST,
         message: 'An error occurred when deleting relationship',
@@ -423,6 +420,7 @@ export class RelationshipsService {
     try {
       await this.relationshipRepository.delete({ id: relationship.id });
     } catch (error) {
+      console.log(error);
       return {
         status: HttpStatus.BAD_REQUEST,
         message: 'An error occurred when deleting relationship',

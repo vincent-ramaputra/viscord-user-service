@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Body,
-  Patch,
   Param,
   Delete,
   Headers,
@@ -16,11 +15,7 @@ import { CreateRelationshipDto } from './dto/create-relationship.dto';
 import { UpdateRelationshipDto } from './dto/update-relationship.dto';
 import { Response } from 'express';
 import { GrpcMethod, MessagePattern } from '@nestjs/microservices';
-import {
-  GET_USERS_PRESENCE_EVENT,
-  USER_OFFLINE_EVENT,
-  USER_ONLINE_EVENT,
-} from 'src/constants/events';
+import { USER_OFFLINE_EVENT, USER_ONLINE_EVENT } from 'src/constants/events';
 
 @Controller('relationships')
 export class RelationshipsController {

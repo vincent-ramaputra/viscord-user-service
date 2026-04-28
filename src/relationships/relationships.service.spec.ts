@@ -1,4 +1,3 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { RelationshipsService } from './relationships.service';
 
 describe('RelationshipsService', () => {

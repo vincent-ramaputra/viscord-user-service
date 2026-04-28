@@ -7,7 +7,6 @@ import { StorageService } from 'src/storage/storage.service';
 import { RelationshipsService } from 'src/relationships/relationships.service';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
 import { HttpStatus } from '@nestjs/common';
-import { UserProfileResponseDTO } from './dto/user-profile-response.dto';
 
 const MOCK_AVATAR_URLS = [
   'https://cdn.com/avatars/avatar-1.png',
@@ -64,7 +63,7 @@ describe('UserProfilesService', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-  })
+  });
 
   describe('create', () => {
     describe('Data validation', () => {

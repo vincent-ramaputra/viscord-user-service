@@ -1,26 +1,17 @@
 import {
   Controller,
   Get,
-  Post,
   Body,
   Patch,
   Param,
   Delete,
   Res,
   Headers,
-  ValidationPipe,
-  HttpStatus,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Response } from 'express';
-import {
-  ClientProxy,
-  ClientProxyFactory,
-  GrpcMethod,
-  Transport,
-} from '@nestjs/microservices';
-import { StorageService } from 'src/storage/storage.service';
+import { GrpcMethod } from '@nestjs/microservices';
 
 @Controller('users')
 export class UsersController {
@@ -41,13 +32,4 @@ export class UsersController {
     return await this.usersService.getById(userId);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(+id, updateUserDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
-  }
 }

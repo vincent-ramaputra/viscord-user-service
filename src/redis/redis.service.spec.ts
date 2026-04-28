@@ -1,4 +1,3 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { RedisService } from './redis.service';
 
 describe('RedisService', () => {

@@ -5,7 +5,6 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
   ValidationPipe,
   Req,
   Res,
@@ -83,10 +82,10 @@ export class UserProfilesController {
     return res.status(status).json(result);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    // return this.userProfilesService.remove(+id);
-  }
+  // @Delete(':id')
+  // remove(@Param('id') id: string) {
+  //   // return this.userProfilesService.remove(+id);
+  // }
 
   @Patch()
   async updateProfile(

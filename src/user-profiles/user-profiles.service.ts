@@ -23,10 +23,7 @@ import {
   Transport,
 } from '@nestjs/microservices';
 import { GATEWAY_QUEUE, USER_PROFILE_UPDATE_EVENT } from 'src/constants/events';
-import { UserStatusUpdateDTO } from 'src/user-profiles/dto/user-status-update.dto';
 import { Payload } from 'src/interfaces/payload.dto';
-import axios from 'axios';
-import { firstValueFrom } from 'rxjs';
 import { UserStatus } from './enums/user-status.enum';
 import { RelationshipsService } from 'src/relationships/relationships.service';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
@@ -243,6 +240,7 @@ export class UserProfilesService {
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
+      console.log(error);
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -265,6 +263,7 @@ export class UserProfilesService {
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
+      console.log(error);
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
