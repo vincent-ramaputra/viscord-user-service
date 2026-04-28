@@ -1,15 +1,5 @@
-import {
-  Controller,
-  Get,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Res,
-  Headers,
-} from '@nestjs/common';
+import { Controller, Get, Res, Headers } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { Response } from 'express';
 import { GrpcMethod } from '@nestjs/microservices';
 
@@ -31,5 +21,4 @@ export class UsersController {
   async getCurrentUserGRPC({ userId }: { userId: string }) {
     return await this.usersService.getById(userId);
   }
-
 }
