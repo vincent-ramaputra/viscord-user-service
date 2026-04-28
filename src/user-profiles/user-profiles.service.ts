@@ -14,7 +14,6 @@ import { ClientProxy, ClientProxyFactory, Transport } from "@nestjs/microservice
 import { GATEWAY_QUEUE, USER_PROFILE_UPDATE_EVENT } from "src/constants/events";
 import { UserStatusUpdateDTO } from "src/user-profiles/dto/user-status-update.dto";
 import { Payload } from "src/interfaces/payload.dto";
-import { HttpService } from "@nestjs/axios";
 import axios from "axios";
 import { firstValueFrom } from "rxjs";
 import { UserStatus } from "./enums/user-status.enum";
@@ -28,7 +27,6 @@ export class UserProfilesService {
     private readonly storageService: StorageService,
     @Inject(forwardRef(() => RelationshipsService)) private readonly relationshipsService: RelationshipsService,
     @InjectRepository(UserProfile) private readonly userProfileRepository: Repository<UserProfile>,
-    private readonly guildsService: HttpService
   ) {
     this.gatewayMQ = ClientProxyFactory.create({
       transport: Transport.RMQ,
