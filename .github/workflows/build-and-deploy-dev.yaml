@@ -1,9 +1,9 @@
-name: Build and push Docker image
+name: Build and deploy image to development cluster
 
 on:
   push:
     branches:
-      - main
+      - develop
 
 jobs:
   build:

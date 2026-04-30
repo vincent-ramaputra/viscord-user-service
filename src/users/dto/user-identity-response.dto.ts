@@ -1,15 +1,15 @@
-import { AutoMap } from "@automapper/classes";
+import { AutoMap } from '@automapper/classes';
 
 export class UserIdentityResponseDTO {
-    @AutoMap()
-    id: string
+  @AutoMap()
+  id: string;
 
-    @AutoMap()
-    email: string;
-    
-    @AutoMap()
-    username: string;
-    
-    @AutoMap()
-    dateOfBirth: Date;
+  @AutoMap()
+  email: string;
+
+  @AutoMap()
+  username: string;
+
+  @AutoMap()
+  dateOfBirth: Date;
 }

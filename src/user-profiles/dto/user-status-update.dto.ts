@@ -1,6 +1,6 @@
-import { UserStatus } from "src/user-profiles/enums/user-status.enum";
+import { UserStatus } from 'src/user-profiles/enums/user-status.enum';
 
 export interface UserStatusUpdateDTO {
-    userId: string
-    status: UserStatus
+  userId: string;
+  status: UserStatus;
 }

@@ -1,6 +1,6 @@
-import { AutoMap } from "@automapper/classes";
+import { AutoMap } from '@automapper/classes';
 
 export class CreateRelationshipDto {
-    @AutoMap()
-    username: string
+  @AutoMap()
+  username: string;
 }
