@@ -2,6 +2,10 @@ name: "Run lint and tests"
 
 on:
   pull_request:
+    types: 
+      - opened
+      - synchronize
+      - reopened
   push:
 
 jobs:
