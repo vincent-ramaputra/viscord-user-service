@@ -12,7 +12,8 @@ export class StorageService {
       region: process.env.AWS_REGION,
       endpoint: process.env.STORAGE_ENDPOINT,
       s3ForcePathStyle: true,
-      logger: console
+      logger: console,
+      signatureVersion: "v4"
     });
   }
 
