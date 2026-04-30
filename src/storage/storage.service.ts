@@ -1,33 +1,42 @@
+import { ListObjectsCommand, S3Client } from '@aws-sdk/client-s3';
 import { Injectable } from '@nestjs/common';
-import * as AWS from 'aws-sdk';
 
 @Injectable()
 export class StorageService {
-  private s3: AWS.S3;
+  private s3: S3Client;
 
   constructor() {
-    this.s3 = new AWS.S3({
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_ACCESS_KEY_SECRET,
+    this.s3 = new S3Client({
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_ACCESS_KEY_SECRET,
+      },
       region: process.env.AWS_REGION,
       endpoint: process.env.STORAGE_ENDPOINT,
-      s3ForcePathStyle: true,
+      forcePathStyle: true,
       logger: console,
-      signatureVersion: "v4"
     });
+
+    this.s3.middlewareStack.add(
+      (next, context) => async (args) => {
+        console.log(context);
+        console.log('Request Input:', args.input); // View request parameters
+        const result = await next(args);
+        console.log('Response Output:', result.output); // View raw response
+        return result;
+      },
+      { name: 'MyDebugLogger', step: 'build' },
+    );
   }
 
   async getFiles(bucket: string, prefix: string): Promise<string[]> {
-    const params = {
+    const command = new ListObjectsCommand({
       Bucket: bucket,
       Prefix: prefix,
-    };
-
+    });
     try {
-      const request = this.s3.listObjectsV2(params);
-      console.log(request.httpRequest);
-      const data = await request.promise();
-      
+      const data = await this.s3.send(command);
+
       const fileNames = data.Contents.map((file) =>
         file.Key.replace(prefix, ''),
       ).filter((fileName) => fileName !== '');
