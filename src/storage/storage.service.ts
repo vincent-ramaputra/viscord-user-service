@@ -23,7 +23,10 @@ export class StorageService {
     };
 
     try {
-      const data = await this.s3.listObjectsV2(params).promise();
+      const request = this.s3.listObjectsV2(params);
+      console.log(request.httpRequest);
+      const data = await request.promise();
+      
       const fileNames = data.Contents.map((file) =>
         file.Key.replace(prefix, ''),
       ).filter((fileName) => fileName !== '');
