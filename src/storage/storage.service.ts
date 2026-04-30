@@ -12,6 +12,7 @@ export class StorageService {
       region: process.env.AWS_REGION,
       endpoint: process.env.STORAGE_ENDPOINT,
       s3ForcePathStyle: true,
+      logger: console
     });
   }
 
@@ -26,6 +27,7 @@ export class StorageService {
       const fileNames = data.Contents.map((file) =>
         file.Key.replace(prefix, ''),
       ).filter((fileName) => fileName !== '');
+
       return fileNames;
     } catch (error) {
       console.error('Error listing files from S3:', error);
