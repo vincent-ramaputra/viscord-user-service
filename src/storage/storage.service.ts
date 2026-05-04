@@ -15,15 +15,16 @@ export class StorageService {
 
   async getFiles(prefix: StoragePath): Promise<string[]> {
     try {
+      const gcsPrefix = prefix.replace(/^\//, '') + '/';
       const [files] = await this.client
         .bucket(this.bucket)
-        .getFiles({ prefix });
+        .getFiles({ prefix: gcsPrefix });
 
       const fileNames = files
-        .map((file) => file.name.replace(prefix, ''))
+        .map((file) => file.name.replace(gcsPrefix, ''))
         .filter((fileName) => fileName !== '');
 
-      console.log(`Files at ${prefix}: ${fileNames}`);
+      console.log(`Files at ${this.bucket} ${prefix}: ${fileNames}`);
       return fileNames;
     } catch (error) {
       console.error('Error listing files from S3:', error);
