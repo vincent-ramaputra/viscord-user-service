@@ -130,9 +130,11 @@ export class UserProfilesService {
       userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
         `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
       );
-      userProfileResponse.avatarURL = this.storageService.toPublicURL(
-        `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
-      );
+      if (userProfileResponse.avatarURL) {
+        userProfileResponse.avatarURL = this.storageService.toPublicURL(
+          `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+        );
+      }
 
       return {
         status: HttpStatus.OK,

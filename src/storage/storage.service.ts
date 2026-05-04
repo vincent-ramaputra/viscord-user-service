@@ -23,6 +23,7 @@ export class StorageService {
         .map((file) => file.name.replace(prefix, ''))
         .filter((fileName) => fileName !== '');
 
+      console.log(`Files at ${prefix}: ${fileNames}`);
       return fileNames;
     } catch (error) {
       console.error('Error listing files from S3:', error);
