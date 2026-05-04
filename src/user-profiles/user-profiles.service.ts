@@ -73,7 +73,10 @@ export class UserProfilesService {
     try {
       await this.userProfileRepository.save(userProfile);
     } catch (error) {
-      if (error instanceof QueryFailedError && (error as any).code === '23505') {
+      if (
+        error instanceof QueryFailedError &&
+        (error as any).code === '23505'
+      ) {
         return {
           status: HttpStatus.BAD_REQUEST,
           message: 'This username is already used',

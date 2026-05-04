@@ -31,7 +31,9 @@ describe('UserProfilesService', () => {
   let userProfilesRepository: jest.Mocked<
     Pick<Repository<UserProfile>, 'findOneBy' | 'save'>
   >;
-  let storageService: jest.Mocked<Pick<StorageService, 'getFiles' | 'toPublicURL'>>;
+  let storageService: jest.Mocked<
+    Pick<StorageService, 'getFiles' | 'toPublicURL'>
+  >;
 
   beforeAll(async () => {
     userProfilesRepository = {
@@ -40,7 +42,7 @@ describe('UserProfilesService', () => {
     };
     storageService = {
       getFiles: jest.fn(),
-      toPublicURL: jest.fn()
+      toPublicURL: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
