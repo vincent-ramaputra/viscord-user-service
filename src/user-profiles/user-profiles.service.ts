@@ -86,22 +86,22 @@ export class UserProfilesService {
       throw error;
     }
 
-    const userResponse = mapper.map(
+    const userProfileResponse = mapper.map(
       userProfile,
       UserProfile,
       UserProfileResponseDTO,
     );
-    userResponse.defaultAvatarURL = this.storageService.toPublicURL(
-      `${StoragePaths.DEFAULT_AVATAR}/${userResponse.defaultAvatarURL}`,
+    userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
+      `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
     );
-    userResponse.avatarURL = this.storageService.toPublicURL(
-      `${StoragePaths.USER_AVATAR}/${userResponse.avatarURL}`,
+    userProfileResponse.avatarURL = this.storageService.toPublicURL(
+      `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
     );
 
     return {
       status: HttpStatus.CREATED,
       message: 'User profile created successfully',
-      data: userResponse,
+      data: userProfileResponse,
     };
   }
 
@@ -126,9 +126,17 @@ export class UserProfilesService {
         };
       }
 
+      const userProfileResponse = mapper.map(userProfile, UserProfile, UserProfileResponseDTO);
+      userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
+        `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
+      );
+      userProfileResponse.avatarURL = this.storageService.toPublicURL(
+        `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+      );
+
       return {
         status: HttpStatus.OK,
-        data: mapper.map(userProfile, UserProfile, UserProfileResponseDTO),
+        data: userProfileResponse,
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
