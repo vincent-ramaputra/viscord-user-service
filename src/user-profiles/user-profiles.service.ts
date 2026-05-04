@@ -9,7 +9,7 @@ import {
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
 import { UserProfile } from './entities/user-profile.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, QueryFailedError, Repository } from 'typeorm';
 import { Result } from 'src/interfaces/result.interface';
 import { mapper } from 'src/mappings/mappers';
 import { createMap } from '@automapper/core';
@@ -27,6 +27,7 @@ import { Payload } from 'src/interfaces/payload.dto';
 import { UserStatus } from './enums/user-status.enum';
 import { RelationshipsService } from 'src/relationships/relationships.service';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
+import { StoragePaths } from 'src/storage/storage.paths';
 
 @Injectable()
 export class UserProfilesService {
@@ -60,33 +61,44 @@ export class UserProfilesService {
       };
     }
 
-    dto.username = dto.username.toLowerCase();
-    const user = await this.userProfileRepository.findOneBy({
-      username: dto.username,
-    });
-    if (user) {
-      return {
-        status: HttpStatus.BAD_REQUEST,
-        message: 'This username is already used',
-        data: null,
-      };
-    }
-
-    const userProfile = mapper.map(dto, CreateUserProfileDto, UserProfile);
     const defaultAvatarURLs: string[] = await this.storageService.getFiles(
-      process.env.AWS_BUCKET,
-      process.env.IMAGE_ASSET_PATH,
+      StoragePaths.DEFAULT_AVATAR,
     );
     const randomIndex = Math.floor(Math.random() * defaultAvatarURLs.length);
 
+    const userProfile = mapper.map(dto, CreateUserProfileDto, UserProfile);
     userProfile.defaultAvatarURL = defaultAvatarURLs[randomIndex];
+    userProfile.username = userProfile.username.toLowerCase();
 
-    await this.userProfileRepository.save(userProfile);
+    try {
+      await this.userProfileRepository.save(userProfile);
+    } catch (error) {
+      if (error instanceof QueryFailedError && (error as any).code === '23505') {
+        return {
+          status: HttpStatus.BAD_REQUEST,
+          message: 'This username is already used',
+          data: null,
+        };
+      }
+      throw error;
+    }
+
+    const userResponse = mapper.map(
+      userProfile,
+      UserProfile,
+      UserProfileResponseDTO,
+    );
+    userResponse.defaultAvatarURL = this.storageService.toPublicURL(
+      `${StoragePaths.DEFAULT_AVATAR}/${userResponse.defaultAvatarURL}`,
+    );
+    userResponse.avatarURL = this.storageService.toPublicURL(
+      `${StoragePaths.USER_AVATAR}/${userResponse.avatarURL}`,
+    );
 
     return {
       status: HttpStatus.CREATED,
       message: 'User profile created successfully',
-      data: mapper.map(userProfile, UserProfile, UserProfileResponseDTO),
+      data: userResponse,
     };
   }
 

@@ -15,7 +15,7 @@ export class UserProfile {
   id: string;
 
   @AutoMap()
-  @Column()
+  @Column({ unique: true })
   username: string;
 
   @AutoMap()

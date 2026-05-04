@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserProfilesService } from './user-profiles.service';
 import { UserProfile } from './entities/user-profile.entity';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { StorageService } from 'src/storage/storage.service';
 import { RelationshipsService } from 'src/relationships/relationships.service';
@@ -31,7 +31,7 @@ describe('UserProfilesService', () => {
   let userProfilesRepository: jest.Mocked<
     Pick<Repository<UserProfile>, 'findOneBy' | 'save'>
   >;
-  let storageService: jest.Mocked<Pick<StorageService, 'getFiles'>>;
+  let storageService: jest.Mocked<Pick<StorageService, 'getFiles' | 'toPublicURL'>>;
 
   beforeAll(async () => {
     userProfilesRepository = {
@@ -40,6 +40,7 @@ describe('UserProfilesService', () => {
     };
     storageService = {
       getFiles: jest.fn(),
+      toPublicURL: jest.fn()
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -74,7 +75,6 @@ describe('UserProfilesService', () => {
 
         expect(result.status).toBe(HttpStatus.BAD_REQUEST);
         expect(result.message).toBe('User id is empty');
-        expect(userProfilesRepository.findOneBy).not.toHaveBeenCalled();
         expect(userProfilesRepository.save).not.toHaveBeenCalled();
       });
 
@@ -85,7 +85,6 @@ describe('UserProfilesService', () => {
 
         expect(result.status).toBe(HttpStatus.BAD_REQUEST);
         expect(result.message).toBe('User id is empty');
-        expect(userProfilesRepository.findOneBy).not.toHaveBeenCalled();
         expect(userProfilesRepository.save).not.toHaveBeenCalled();
       });
 
@@ -96,7 +95,6 @@ describe('UserProfilesService', () => {
 
         expect(result.status).toBe(HttpStatus.BAD_REQUEST);
         expect(result.message).toBe('Display name must be filled');
-        expect(userProfilesRepository.findOneBy).not.toHaveBeenCalled();
         expect(userProfilesRepository.save).not.toHaveBeenCalled();
       });
 
@@ -106,7 +104,6 @@ describe('UserProfilesService', () => {
 
         expect(result.status).toBe(HttpStatus.BAD_REQUEST);
         expect(result.message).toBe('Display name must be filled');
-        expect(userProfilesRepository.findOneBy).not.toHaveBeenCalled();
         expect(userProfilesRepository.save).not.toHaveBeenCalled();
       });
     });
@@ -114,29 +111,27 @@ describe('UserProfilesService', () => {
     describe('Username uniqueness', () => {
       it('Should return 400 when username is taken', async () => {
         const dto = makeDto();
-        userProfilesRepository.findOneBy.mockResolvedValue({
-          username: dto.username,
-        } as UserProfile);
+        storageService.getFiles.mockResolvedValue(MOCK_AVATAR_URLS);
+        const error = new QueryFailedError('', [], new Error());
+        (error as any).code = '23505';
+        userProfilesRepository.save.mockRejectedValue(error);
 
         const result = await service.create(dto);
 
         expect(result.status).toBe(HttpStatus.BAD_REQUEST);
         expect(result.message).toBe('This username is already used');
         expect(result.data).toBeNull();
-        expect(userProfilesRepository.save).not.toHaveBeenCalled();
       });
 
       it('Should query different-cased username with lowercase', async () => {
         const dto = makeDto({ username: 'TestUser' });
-        userProfilesRepository.findOneBy.mockResolvedValue({
-          username: dto.username.toLowerCase(),
-        } as UserProfile);
+        storageService.getFiles.mockResolvedValue(MOCK_AVATAR_URLS);
 
         await service.create(dto);
 
-        expect(userProfilesRepository.findOneBy).toHaveBeenCalledWith({
-          username: dto.username.toLowerCase(),
-        });
+        expect(userProfilesRepository.save).toHaveBeenCalledWith(
+          expect.objectContaining({ username: dto.username.toLowerCase() }),
+        );
       });
     });
 
