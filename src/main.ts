@@ -12,7 +12,6 @@ async function bootstrap() {
     // credentials: true
   });
 
-  console.log(process.env.GRPC_PORT);
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.GRPC,

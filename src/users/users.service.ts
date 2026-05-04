@@ -22,7 +22,7 @@ export class UsersService {
         message: 'Invalid request',
       };
     }
-    console.log(id);
+    
     const userProfileResponse: Result<UserProfileResponseDTO> =
       await this.userProfilesService.getById(id);
 
