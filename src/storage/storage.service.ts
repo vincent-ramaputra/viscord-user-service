@@ -15,13 +15,12 @@ export class StorageService {
 
   async getFiles(prefix: StoragePath): Promise<string[]> {
     try {
-      const gcsPrefix = prefix.replace(/^\//, '') + '/';
       const [files] = await this.client
         .bucket(this.bucket)
-        .getFiles({ prefix: gcsPrefix });
+        .getFiles({ prefix });
 
       const fileNames = files
-        .map((file) => file.name.replace(gcsPrefix, ''))
+        .map((file) => file.name.replace(prefix, ''))
         .filter((fileName) => fileName !== '');
 
       console.log(`Files at ${this.bucket} ${prefix}: ${fileNames}`);
@@ -33,6 +32,6 @@ export class StorageService {
   }
 
   toPublicURL(path: string) {
-    return `${process.env.CDN_ENDPOINT}/${this.bucket}${path}`;
+    return `${process.env.CDN_ENDPOINT}/${this.bucket}/${path}`;
   }
 }
