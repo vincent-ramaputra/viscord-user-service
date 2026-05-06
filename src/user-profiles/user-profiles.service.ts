@@ -259,9 +259,17 @@ export class UserProfilesService {
         };
       }
 
+      const userProfileResponse = mapper.map(user, UserProfile, UserProfileResponseDTO);
+      userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
+        `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
+      );
+      userProfileResponse.avatarURL = this.storageService.toPublicURL(
+        `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+      );
+
       return {
         status: HttpStatus.OK,
-        data: mapper.map(user, UserProfile, UserProfileResponseDTO),
+        data: userProfileResponse,
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
@@ -282,8 +290,18 @@ export class UserProfilesService {
         await this.userProfileRepository.findBy({ id: In(userIds) });
       return {
         status: HttpStatus.OK,
-        data: userProfiles.map((user) =>
-          mapper.map(user, UserProfile, UserProfileResponseDTO),
+        data: userProfiles.map((user) => {
+          const userProfileResponse = mapper.map(user, UserProfile, UserProfileResponseDTO);
+
+          userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
+            `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
+          );
+          userProfileResponse.avatarURL = this.storageService.toPublicURL(
+            `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+          );
+
+          return userProfileResponse;
+        }
         ),
         message: 'User profile retrieved successfully',
       };
