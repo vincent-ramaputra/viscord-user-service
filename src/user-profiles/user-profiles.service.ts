@@ -94,7 +94,7 @@ export class UserProfilesService {
     userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
       `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
     );
-    userProfileResponse.avatarURL = this.storageService.toPublicURL(
+    if (userProfileResponse.avatarURL) userProfileResponse.avatarURL = this.storageService.toPublicURL(
       `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
     );
 
@@ -263,7 +263,7 @@ export class UserProfilesService {
       userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
         `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
       );
-      userProfileResponse.avatarURL = this.storageService.toPublicURL(
+      if (userProfileResponse.avatarURL) userProfileResponse.avatarURL = this.storageService.toPublicURL(
         `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
       );
 
@@ -296,7 +296,7 @@ export class UserProfilesService {
           userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
             `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
           );
-          userProfileResponse.avatarURL = this.storageService.toPublicURL(
+          if(userProfileResponse.avatarURL) userProfileResponse.avatarURL = this.storageService.toPublicURL(
             `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
           );
 
