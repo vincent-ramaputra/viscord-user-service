@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
   ValidationPipe,
 } from '@nestjs/common';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
@@ -31,6 +32,7 @@ import { StoragePaths } from 'src/storage/storage.paths';
 
 @Injectable()
 export class UserProfilesService {
+  private readonly logger = new Logger(UserProfilesService.name);
   private gatewayMQ: ClientProxy;
   constructor(
     private readonly storageService: StorageService,
@@ -142,7 +144,7 @@ export class UserProfilesService {
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to retrieve user profile by id');
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -181,7 +183,7 @@ export class UserProfilesService {
         this.relationshipsService.emitUserOnline(dto.userId);
       }
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to update user status');
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -204,7 +206,7 @@ export class UserProfilesService {
     try {
       this.gatewayMQ.emit(USER_PROFILE_UPDATE_EVENT, payload);
     } catch (error) {
-      console.error(error);
+      this.logger.error({ err: error.message }, 'failed to emit user profile update event');
     }
 
     return {
@@ -273,7 +275,7 @@ export class UserProfilesService {
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to retrieve user profile by username');
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -306,7 +308,7 @@ export class UserProfilesService {
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to retrieve user profiles');
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -338,7 +340,7 @@ export class UserProfilesService {
     try {
       await this.userProfileRepository.save(profile);
     } catch (error) {
-      console.error(error);
+      this.logger.error({ err: error.message }, 'failed to save user profile');
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         data: null,
@@ -355,7 +357,7 @@ export class UserProfilesService {
         data: profileDTO,
       } as Payload<UserProfileResponseDTO>);
     } catch (error) {
-      console.error(error);
+      this.logger.error({ err: error.message }, 'failed to emit user profile update event');
     }
 
     return {

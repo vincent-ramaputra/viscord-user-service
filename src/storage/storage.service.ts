@@ -1,10 +1,11 @@
 import { Storage } from '@google-cloud/storage';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { StoragePath } from './storage.paths';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class StorageService {
+  private readonly logger = new Logger(StorageService.name);
   private client: Storage;
   private bucket: string;
 
@@ -23,10 +24,10 @@ export class StorageService {
         .map((file) => file.name.replace(prefix, ''))
         .filter((fileName) => fileName !== '');
 
-      console.log(`Files at ${this.bucket} ${prefix}: ${fileNames}`);
+      this.logger.debug(`files at ${this.bucket} ${prefix}: ${fileNames}`);
       return fileNames;
     } catch (error) {
-      console.error('Error listing files from S3:', error);
+      this.logger.error({ err: error.message }, 'error listing files from storage');
       throw error;
     }
   }

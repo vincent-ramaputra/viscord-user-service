@@ -1,11 +1,13 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
+const logger = new Logger('DatabaseModule');
 
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
       useFactory: () => {
-        console.log(`connecting to ${process.env.DB_HOST}`);
+        logger.log(`connecting to ${process.env.DB_HOST}`);
         return {
           type: 'postgres',
           host: process.env.DB_HOST,

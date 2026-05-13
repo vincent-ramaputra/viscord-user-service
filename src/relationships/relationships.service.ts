@@ -1,4 +1,4 @@
-import { forwardRef, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { forwardRef, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { CreateRelationshipDto } from './dto/create-relationship.dto';
 import { UpdateRelationshipDto } from './dto/update-relationship.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -28,6 +28,7 @@ import { UserPresenceUpdateDTO } from 'src/presence/dto/user-presence-update.dto
 
 @Injectable()
 export class RelationshipsService {
+  private readonly logger = new Logger(RelationshipsService.name);
   private gatewayMQ: ClientProxy;
 
   constructor(
@@ -86,7 +87,7 @@ export class RelationshipsService {
       try {
         await this.relationshipRepository.save(relationship);
       } catch (error) {
-        console.log(error);
+        this.logger.error({ err: error.message }, 'failed to save relationship');
         return {
           status: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'An unknown error occurred',
@@ -109,7 +110,7 @@ export class RelationshipsService {
           data: payload,
         } as Payload<RelationshipResponseDTO>);
       } catch (error) {
-        console.log(error);
+        this.logger.error({ err: error.message }, 'failed to emit friend request event');
       }
 
       const dto: RelationshipResponseDTO = mapper.map(
@@ -366,7 +367,7 @@ export class RelationshipsService {
         data: payload,
       } as Payload<RelationshipResponseDTO>);
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to emit friend added event');
     }
 
     return {
@@ -409,7 +410,7 @@ export class RelationshipsService {
         };
       }
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to find relationship for deletion');
       return {
         status: HttpStatus.BAD_REQUEST,
         message: 'An error occurred when deleting relationship',
@@ -420,7 +421,7 @@ export class RelationshipsService {
     try {
       await this.relationshipRepository.delete({ id: relationship.id });
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to delete relationship');
       return {
         status: HttpStatus.BAD_REQUEST,
         message: 'An error occurred when deleting relationship',
@@ -455,7 +456,7 @@ export class RelationshipsService {
       } as Payload<RelationshipResponseDTO>;
       this.gatewayMQ.emit(FRIEND_REMOVED_EVENT, p);
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to emit friend removed event');
     }
 
     return {
@@ -502,26 +503,22 @@ export class RelationshipsService {
         },
       } as Payload<UserPresenceUpdateDTO>);
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to emit user offline event');
     }
   }
 
   emitUserOnline(userId: string) {
     try {
-      try {
-        this.gatewayMQ.emit(USER_PRESENCE_UPDATE_EVENT, {
-          recipients: [],
-          targetIds: [userId],
-          data: {
-            userId,
-            isOnline: true,
-          },
-        } as Payload<UserPresenceUpdateDTO>);
-      } catch (error) {
-        console.log(error);
-      }
+      this.gatewayMQ.emit(USER_PRESENCE_UPDATE_EVENT, {
+        recipients: [],
+        targetIds: [userId],
+        data: {
+          userId,
+          isOnline: true,
+        },
+      } as Payload<UserPresenceUpdateDTO>);
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to emit user online event');
     }
   }
 

@@ -3,9 +3,11 @@ import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { USER_QUEUE } from './constants/events';
 import { join } from 'path';
+import { Logger } from 'nestjs-pino';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
   app.enableCors({
     origin: 'https://viscord.app',
     methods: 'GET,POST,PUT,DELETE',
