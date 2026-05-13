@@ -7,12 +7,39 @@ import { RelationshipsModule } from './relationships/relationships.module';
 import { StorageService } from './storage/storage.service';
 import { StorageModule } from './storage/storage.module';
 import { RedisModule } from './redis/redis.module';
+import { IncomingMessage, ServerResponse } from 'http';
+import { LoggerModule } from 'nestjs-pino';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.NODE_ENV == 'production' ? 'info' : 'debug',
+        redact: [
+          'req.headers.cookie',
+          'req.headers.authorization',
+          'res.headers["set-cookie"]',
+        ],
+        serializers: {
+          req(req: IncomingMessage & { id: number }) {
+            return {
+              id: req.id,
+              method: req.method,
+              url: req.url,
+              'x-forwarded-uri': req.headers['x-forwarded-uri']
+            }
+          },
+          res(res: ServerResponse) {
+            return {
+              statusCode: res.statusCode
+            };
+          }
+        }
+      }
     }),
     DatabaseModule,
     UserProfilesModule,
@@ -23,4 +50,4 @@ import { RedisModule } from './redis/redis.module';
   ],
   providers: [StorageService],
 })
-export class AppModule {}
+export class AppModule { }

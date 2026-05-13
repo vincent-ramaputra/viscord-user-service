@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UserProfilesService } from 'src/user-profiles/user-profiles.service';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
@@ -9,6 +9,8 @@ import { AxiosResponse } from 'axios';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly userProfilesService: UserProfilesService,
     private readonly authService: HttpService,
@@ -47,7 +49,7 @@ export class UsersService {
         };
       }
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to retrieve user identity');
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
