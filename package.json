@@ -23,7 +23,7 @@
     "@automapper/classes": "^8.8.1",
     "@automapper/core": "^8.8.1",
     "@automapper/nestjs": "^8.8.1",
-    "@google-cloud/storage": "^7.19.0",
+    "@aws-sdk/client-s3": "^3.658.0",
     "@grpc/grpc-js": "^1.13.4",
     "@nestjs/axios": "^4.0.0",
     "@nestjs/common": "^10.0.0",
