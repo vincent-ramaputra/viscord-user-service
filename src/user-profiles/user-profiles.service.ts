@@ -74,7 +74,7 @@ export class UserProfilesService {
 
     const userProfile = mapper.map(dto, CreateUserProfileDto, UserProfile);
     const defaultAvatarURLs: string[] = await this.storageService.getFiles(
-      process.env.AWS_BUCKET,
+      process.env.BUCKET_NAME,
       process.env.IMAGE_ASSET_PATH,
     );
     const randomIndex = Math.floor(Math.random() * defaultAvatarURLs.length);

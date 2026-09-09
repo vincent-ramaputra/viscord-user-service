@@ -7,10 +7,10 @@ export class StorageService {
 
   constructor() {
     this.s3 = new AWS.S3({
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_ACCESS_KEY_SECRET,
-      region: process.env.AWS_REGION,
-      endpoint: process.env.STORAGE_ENDPOINT,
+      accessKeyId: process.env.S3_ACCESS_KEY_ID,
+      secretAccessKey: process.env.S3_ACCESS_KEY_SECRET,
+      region: process.env.S3_REGION,
+      endpoint: process.env.S3_ENDPOINT,
       s3ForcePathStyle: true,
       logger: console,
       signatureVersion: "v4"
