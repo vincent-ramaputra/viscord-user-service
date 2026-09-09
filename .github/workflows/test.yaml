@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: 22.13
       - name: "Install dependencies"
-        run: npm ci --legacy-peer-deps
+        run: npm ci
       - name: "Run tests"
         run: npm run test
   lint:
@@ -28,6 +28,6 @@ jobs:
         with:
           node-version: 22.13
       - name: "Install dependencies"
-        run: npm ci --legacy-peer-deps
+        run: npm ci
       - name: "Run lint"
         run: npm run lint
