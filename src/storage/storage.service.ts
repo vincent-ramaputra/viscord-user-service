@@ -79,6 +79,6 @@ export class StorageService {
   }
 
   toPublicURL(path: string) {
-    return `${this.cdnEndpoint}/${this.bucket}/${path}`;
+    return `${this.cdnEndpoint}/${path}`;
   }
 }
