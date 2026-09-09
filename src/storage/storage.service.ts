@@ -2,6 +2,7 @@ import {
   ListObjectsV2Command,
   ListObjectsV2CommandOutput,
   S3Client,
+  S3ClientConfig,
 } from '@aws-sdk/client-s3';
 import { Injectable, Logger } from '@nestjs/common';
 import { StoragePath } from './storage.paths';
@@ -18,17 +19,27 @@ export class StorageService {
     this.bucket = configService.getOrThrow('BUCKET_NAME');
     this.cdnEndpoint = configService.getOrThrow('CDN_ENDPOINT');
 
-    this.client = new S3Client({
+    const config: S3ClientConfig = {
       region: configService.getOrThrow('S3_REGION'),
-      endpoint: configService.getOrThrow('S3_ENDPOINT'),
-      credentials: {
-        accessKeyId: configService.getOrThrow('S3_ACCESS_KEY_ID'),
-        secretAccessKey: configService.getOrThrow('S3_ACCESS_KEY_SECRET'),
-      },
       // S3-compatible endpoints (MinIO, etc.) need path-style addressing;
       // AWS S3 accepts it too, so this is safe as a default.
       forcePathStyle: true,
-    });
+    };
+
+    // Custom endpoint only for non-AWS S3-compatible storage; on AWS we let the
+    // SDK derive the regional endpoint.
+    const endpoint = configService.get<string>('S3_ENDPOINT');
+    if (endpoint) config.endpoint = endpoint;
+
+    // Static keys are optional: when they're absent the SDK's default provider
+    // chain resolves credentials automatically (EKS Pod Identity / IRSA in prod).
+    const accessKeyId = configService.get<string>('S3_ACCESS_KEY_ID');
+    const secretAccessKey = configService.get<string>('S3_ACCESS_KEY_SECRET');
+    if (accessKeyId && secretAccessKey) {
+      config.credentials = { accessKeyId, secretAccessKey };
+    }
+
+    this.client = new S3Client(config);
   }
 
   async getFiles(prefix: StoragePath): Promise<string[]> {
