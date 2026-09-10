@@ -20,7 +20,9 @@ const logger = new Logger('DatabaseModule');
               ? { rejectUnauthorized: false }
               : undefined,
           entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-          synchronize: true,
+          migrations: [__dirname + '/migrations/*{.ts,.js}'],
+          migrationsRun: true,
+          synchronize: false,
         };
       },
     }),
