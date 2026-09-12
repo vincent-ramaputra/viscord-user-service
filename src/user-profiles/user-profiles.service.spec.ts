@@ -61,7 +61,6 @@ describe('UserProfilesService', () => {
     }).compile();
 
     service = module.get<UserProfilesService>(UserProfilesService);
-    service.onModuleInit();
   });
 
   beforeEach(() => {
