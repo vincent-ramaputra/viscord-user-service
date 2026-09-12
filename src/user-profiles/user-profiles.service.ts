@@ -12,8 +12,11 @@ import { UserProfile } from './entities/user-profile.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, QueryFailedError, Repository } from 'typeorm';
 import { Result } from 'src/interfaces/result.interface';
-import { mapper } from 'src/mappings/mappers';
-import { createMap } from '@automapper/core';
+import {
+  toUserProfileEntity,
+  toUserProfileEntityFromResponse,
+  toUserProfileResponseDTO,
+} from 'src/mappings/user-profile.mapper';
 import { UserProfileResponseDTO } from './dto/user-profile-response.dto';
 import { UpdateStatusDTO } from 'src/users/dto/update-status.dto';
 import { StorageService } from 'src/storage/storage.service';
@@ -68,7 +71,7 @@ export class UserProfilesService {
     );
     const randomIndex = Math.floor(Math.random() * defaultAvatarURLs.length);
 
-    const userProfile = mapper.map(dto, CreateUserProfileDto, UserProfile);
+    const userProfile = toUserProfileEntity(dto);
     userProfile.defaultAvatarURL = defaultAvatarURLs[randomIndex];
     userProfile.username = userProfile.username.toLowerCase();
 
@@ -88,17 +91,14 @@ export class UserProfilesService {
       throw error;
     }
 
-    const userProfileResponse = mapper.map(
-      userProfile,
-      UserProfile,
-      UserProfileResponseDTO,
-    );
+    const userProfileResponse = toUserProfileResponseDTO(userProfile);
     userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
       `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
     );
-    if (userProfileResponse.avatarURL) userProfileResponse.avatarURL = this.storageService.toPublicURL(
-      `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
-    );
+    if (userProfileResponse.avatarURL)
+      userProfileResponse.avatarURL = this.storageService.toPublicURL(
+        `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+      );
 
     return {
       status: HttpStatus.CREATED,
@@ -128,7 +128,7 @@ export class UserProfilesService {
         };
       }
 
-      const userProfileResponse = mapper.map(userProfile, UserProfile, UserProfileResponseDTO);
+      const userProfileResponse = toUserProfileResponseDTO(userProfile);
       userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
         `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
       );
@@ -144,7 +144,10 @@ export class UserProfilesService {
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to retrieve user profile by id');
+      this.logger.error(
+        { err: error.message },
+        'failed to retrieve user profile by id',
+      );
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -165,11 +168,7 @@ export class UserProfilesService {
         data: null,
       };
     }
-    const userProfile = mapper.map(
-      userResponse.data,
-      UserProfileResponseDTO,
-      UserProfile,
-    );
+    const userProfile = toUserProfileEntityFromResponse(userResponse.data);
 
     try {
       const previousStatus = userProfile.status;
@@ -191,11 +190,7 @@ export class UserProfilesService {
       };
     }
 
-    const profileDTO = mapper.map(
-      userProfile,
-      UserProfile,
-      UserProfileResponseDTO,
-    );
+    const profileDTO = toUserProfileResponseDTO(userProfile);
 
     const payload: Payload<UserProfileResponseDTO> = {
       recipients: [],
@@ -206,7 +201,10 @@ export class UserProfilesService {
     try {
       this.gatewayMQ.emit(USER_PROFILE_UPDATE_EVENT, payload);
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to emit user profile update event');
+      this.logger.error(
+        { err: error.message },
+        'failed to emit user profile update event',
+      );
     }
 
     return {
@@ -261,13 +259,14 @@ export class UserProfilesService {
         };
       }
 
-      const userProfileResponse = mapper.map(user, UserProfile, UserProfileResponseDTO);
+      const userProfileResponse = toUserProfileResponseDTO(user);
       userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
         `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
       );
-      if (userProfileResponse.avatarURL) userProfileResponse.avatarURL = this.storageService.toPublicURL(
-        `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
-      );
+      if (userProfileResponse.avatarURL)
+        userProfileResponse.avatarURL = this.storageService.toPublicURL(
+          `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+        );
 
       return {
         status: HttpStatus.OK,
@@ -275,7 +274,10 @@ export class UserProfilesService {
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to retrieve user profile by username');
+      this.logger.error(
+        { err: error.message },
+        'failed to retrieve user profile by username',
+      );
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -293,22 +295,26 @@ export class UserProfilesService {
       return {
         status: HttpStatus.OK,
         data: userProfiles.map((user) => {
-          const userProfileResponse = mapper.map(user, UserProfile, UserProfileResponseDTO);
+          const userProfileResponse = toUserProfileResponseDTO(user);
 
-          userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
-            `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
-          );
-          if(userProfileResponse.avatarURL) userProfileResponse.avatarURL = this.storageService.toPublicURL(
-            `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
-          );
+          userProfileResponse.defaultAvatarURL =
+            this.storageService.toPublicURL(
+              `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
+            );
+          if (userProfileResponse.avatarURL)
+            userProfileResponse.avatarURL = this.storageService.toPublicURL(
+              `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+            );
 
           return userProfileResponse;
-        }
-        ),
+        }),
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to retrieve user profiles');
+      this.logger.error(
+        { err: error.message },
+        'failed to retrieve user profiles',
+      );
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -348,7 +354,7 @@ export class UserProfilesService {
       };
     }
 
-    const profileDTO = mapper.map(profile, UserProfile, UserProfileResponseDTO);
+    const profileDTO = toUserProfileResponseDTO(profile);
 
     try {
       this.gatewayMQ.emit(USER_PROFILE_UPDATE_EVENT, {
@@ -357,7 +363,10 @@ export class UserProfilesService {
         data: profileDTO,
       } as Payload<UserProfileResponseDTO>);
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to emit user profile update event');
+      this.logger.error(
+        { err: error.message },
+        'failed to emit user profile update event',
+      );
     }
 
     return {
@@ -365,11 +374,5 @@ export class UserProfilesService {
       data: profileDTO,
       message: 'User profile updated successfully',
     };
-  }
-
-  onModuleInit() {
-    createMap(mapper, CreateUserProfileDto, UserProfile);
-    createMap(mapper, UserProfile, UserProfileResponseDTO);
-    createMap(mapper, UserProfileResponseDTO, UserProfile);
   }
 }

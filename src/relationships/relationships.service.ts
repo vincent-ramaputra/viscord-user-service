@@ -1,4 +1,10 @@
-import { forwardRef, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { CreateRelationshipDto } from './dto/create-relationship.dto';
 import { UpdateRelationshipDto } from './dto/update-relationship.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -13,8 +19,7 @@ import {
   ClientProxyFactory,
   Transport,
 } from '@nestjs/microservices';
-import { mapper } from 'src/mappings/mappers';
-import { createMap } from '@automapper/core';
+import { toRelationshipResponseDTO } from 'src/mappings/relationship.mapper';
 import { Payload } from 'src/interfaces/payload.dto';
 import {
   FRIEND_ADDED_EVENT,
@@ -87,7 +92,10 @@ export class RelationshipsService {
       try {
         await this.relationshipRepository.save(relationship);
       } catch (error) {
-        this.logger.error({ err: error.message }, 'failed to save relationship');
+        this.logger.error(
+          { err: error.message },
+          'failed to save relationship',
+        );
         return {
           status: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'An unknown error occurred',
@@ -97,11 +105,8 @@ export class RelationshipsService {
 
       try {
         const sender = await this.userProfilesService.getById(senderId);
-        const payload: RelationshipResponseDTO = mapper.map(
-          relationship,
-          Relationship,
-          RelationshipResponseDTO,
-        );
+        const payload: RelationshipResponseDTO =
+          toRelationshipResponseDTO(relationship);
 
         payload.user = sender.data;
         payload.type = RelationshipType.PendingReceived;
@@ -110,14 +115,14 @@ export class RelationshipsService {
           data: payload,
         } as Payload<RelationshipResponseDTO>);
       } catch (error) {
-        this.logger.error({ err: error.message }, 'failed to emit friend request event');
+        this.logger.error(
+          { err: error.message },
+          'failed to emit friend request event',
+        );
       }
 
-      const dto: RelationshipResponseDTO = mapper.map(
-        relationship,
-        Relationship,
-        RelationshipResponseDTO,
-      );
+      const dto: RelationshipResponseDTO =
+        toRelationshipResponseDTO(relationship);
       dto.user = recipient;
       return {
         status: HttpStatus.OK,
@@ -354,11 +359,7 @@ export class RelationshipsService {
       };
     }
 
-    const payload = mapper.map(
-      relationship,
-      Relationship,
-      RelationshipResponseDTO,
-    );
+    const payload = toRelationshipResponseDTO(relationship);
     payload.user = recipientResponse.data;
 
     try {
@@ -367,7 +368,10 @@ export class RelationshipsService {
         data: payload,
       } as Payload<RelationshipResponseDTO>);
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to emit friend added event');
+      this.logger.error(
+        { err: error.message },
+        'failed to emit friend added event',
+      );
     }
 
     return {
@@ -410,7 +414,10 @@ export class RelationshipsService {
         };
       }
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to find relationship for deletion');
+      this.logger.error(
+        { err: error.message },
+        'failed to find relationship for deletion',
+      );
       return {
         status: HttpStatus.BAD_REQUEST,
         message: 'An error occurred when deleting relationship',
@@ -421,7 +428,10 @@ export class RelationshipsService {
     try {
       await this.relationshipRepository.delete({ id: relationship.id });
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to delete relationship');
+      this.logger.error(
+        { err: error.message },
+        'failed to delete relationship',
+      );
       return {
         status: HttpStatus.BAD_REQUEST,
         message: 'An error occurred when deleting relationship',
@@ -439,11 +449,7 @@ export class RelationshipsService {
       };
     }
 
-    const payload = mapper.map(
-      relationship,
-      Relationship,
-      RelationshipResponseDTO,
-    );
+    const payload = toRelationshipResponseDTO(relationship);
     payload.user = senderResponse.data;
     try {
       const p = {
@@ -456,7 +462,10 @@ export class RelationshipsService {
       } as Payload<RelationshipResponseDTO>;
       this.gatewayMQ.emit(FRIEND_REMOVED_EVENT, p);
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to emit friend removed event');
+      this.logger.error(
+        { err: error.message },
+        'failed to emit friend removed event',
+      );
     }
 
     return {
@@ -503,7 +512,10 @@ export class RelationshipsService {
         },
       } as Payload<UserPresenceUpdateDTO>);
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to emit user offline event');
+      this.logger.error(
+        { err: error.message },
+        'failed to emit user offline event',
+      );
     }
   }
 
@@ -518,7 +530,10 @@ export class RelationshipsService {
         },
       } as Payload<UserPresenceUpdateDTO>);
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to emit user online event');
+      this.logger.error(
+        { err: error.message },
+        'failed to emit user online event',
+      );
     }
   }
 
@@ -557,9 +572,5 @@ export class RelationshipsService {
     };
 
     return payload;
-  }
-
-  onModuleInit() {
-    createMap(mapper, Relationship, RelationshipResponseDTO);
   }
 }
