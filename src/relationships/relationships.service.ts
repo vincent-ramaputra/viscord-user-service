@@ -30,6 +30,7 @@ import {
 } from 'src/constants/events';
 import { UserStatus } from 'src/user-profiles/enums/user-status.enum';
 import { UserPresenceUpdateDTO } from 'src/presence/dto/user-presence-update.dto';
+import { UserProfileResponseDTO } from 'src/user-profiles/dto/user-profile-response.dto';
 
 @Injectable()
 export class RelationshipsService {
@@ -190,34 +191,40 @@ export class RelationshipsService {
         where: [{ senderId: userId }, { recipientId: userId }],
       });
 
-    const relationshipDTOs: RelationshipResponseDTO[] = await Promise.all(
-      relationships
-        .filter(
-          (rel) =>
-            rel.type !== RelationshipType.Blocked || rel.senderId === userId,
-        )
-        .map(async (relationship) => {
-          const user = (
-            await this.userProfilesService.getById(
-              relationship.senderId !== userId
-                ? relationship.senderId
-                : relationship.recipientId,
-            )
-          ).data;
-          return {
-            id: relationship.id,
-            type:
-              relationship.type === RelationshipType.Pending
-                ? relationship.senderId === userId
-                  ? RelationshipType.Pending
-                  : RelationshipType.PendingReceived
-                : relationship.type,
-            user: user,
-            createdAt: relationship.createdAt,
-            updatedAt: relationship.updatedAt,
-          };
-        }),
+    const filtered = relationships.filter(
+      (rel) => rel.type !== RelationshipType.Blocked || rel.senderId === userId,
     );
+
+    const profilesResponse = await this.userProfilesService.getUserProfiles(
+      filtered.map((rel) =>
+        rel.senderId === userId ? rel.recipientId : rel.senderId,
+      ),
+    );
+    if (profilesResponse.status !== HttpStatus.OK || !profilesResponse.data) {
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        data: null,
+        message: 'Failed retrieving user profiles',
+      };
+    }
+
+    const profilesById: Map<string, UserProfileResponseDTO> = new Map(
+      profilesResponse.data.map((p) => [p.id, p]),
+    );
+    const relationshipDTOs: RelationshipResponseDTO[] = filtered.map((rel) => {
+      const otherUserId =
+        rel.senderId !== userId ? rel.senderId : rel.recipientId;
+      const dto = toRelationshipResponseDTO(rel);
+      dto.user = profilesById.get(otherUserId) ?? null;
+      dto.type =
+        rel.type === RelationshipType.Pending
+          ? rel.senderId === userId
+            ? RelationshipType.Pending
+            : RelationshipType.PendingReceived
+          : rel.type;
+
+      return dto;
+    });
 
     return {
       status: HttpStatus.OK,
