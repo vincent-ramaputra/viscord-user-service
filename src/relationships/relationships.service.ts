@@ -24,7 +24,7 @@ import { Payload } from 'src/interfaces/payload.dto';
 import {
   FRIEND_ADDED_EVENT,
   FRIEND_REMOVED_EVENT,
-  FRIEND_REQUEST_RECEIVED_EVENT,
+  FRIEND_REQUEST_SENT_EVENT,
   GATEWAY_QUEUE,
   USER_PRESENCE_UPDATE_EVENT,
 } from 'src/constants/events';
@@ -111,7 +111,7 @@ export class RelationshipsService {
 
         payload.user = sender.data;
         payload.type = RelationshipType.PendingReceived;
-        this.gatewayMQ.emit(FRIEND_REQUEST_RECEIVED_EVENT, {
+        this.gatewayMQ.emit(FRIEND_REQUEST_SENT_EVENT, {
           recipients: [relationship.recipientId],
           data: payload,
         } as Payload<RelationshipResponseDTO>);
