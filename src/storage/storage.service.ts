@@ -58,7 +58,9 @@ export class StorageService {
         );
 
         for (const object of response.Contents ?? []) {
-          const fileName = (object.Key ?? '').slice(prefix.length).replace(/^\/+/, '');
+          const fileName = (object.Key ?? '')
+            .slice(prefix.length)
+            .replace(/^\/+/, '');
           if (fileName !== '') fileNames.push(fileName);
         }
 

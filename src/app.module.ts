@@ -9,6 +9,7 @@ import { StorageModule } from './storage/storage.module';
 import { RedisModule } from './redis/redis.module';
 import { IncomingMessage, ServerResponse } from 'http';
 import { LoggerModule } from 'nestjs-pino';
+import { OutboxModule } from './outbox/outbox.module';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { LoggerModule } from 'nestjs-pino';
       pinoHttp: {
         level: process.env.NODE_ENV == 'production' ? 'info' : 'debug',
         formatters: {
-          level: (label: string) => ({ level: label })
+          level: (label: string) => ({ level: label }),
         },
         redact: [
           'req.headers.cookie',
@@ -33,16 +34,16 @@ import { LoggerModule } from 'nestjs-pino';
               id: req.id,
               method: req.method,
               url: req.url,
-              'x-forwarded-uri': req.headers['x-forwarded-uri']
-            }
+              'x-forwarded-uri': req.headers['x-forwarded-uri'],
+            };
           },
           res(res: ServerResponse) {
             return {
-              statusCode: res.statusCode
+              statusCode: res.statusCode,
             };
-          }
-        }
-      }
+          },
+        },
+      },
     }),
     DatabaseModule,
     UserProfilesModule,
@@ -50,7 +51,8 @@ import { LoggerModule } from 'nestjs-pino';
     RelationshipsModule,
     StorageModule,
     RedisModule,
+    OutboxModule,
   ],
   providers: [StorageService],
 })
-export class AppModule { }
+export class AppModule {}

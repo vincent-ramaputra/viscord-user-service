@@ -35,6 +35,7 @@
     "@nestjs/mapped-types": "*",
     "@nestjs/microservices": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/schedule": "^12.0.2",
     "@nestjs/typeorm": "^11.0.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/auto-instrumentations-node": "^0.80.0",
@@ -97,6 +98,9 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "transformIgnorePatterns": [
+      "node_modules/(?!(@nestjs/schedule)/)"
+    ]
   }
 }

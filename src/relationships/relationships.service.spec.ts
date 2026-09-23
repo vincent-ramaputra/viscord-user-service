@@ -9,6 +9,8 @@ import { RelationshipsService } from './relationships.service';
 import { UserProfileResponseDTO } from 'src/user-profiles/dto/user-profile-response.dto';
 import { UserStatus } from 'src/user-profiles/enums/user-status.enum';
 import { UserProfilesService } from 'src/user-profiles/user-profiles.service';
+import { OutboxService } from 'src/outbox/outbox.service';
+import { DataSource } from 'typeorm';
 
 // Distinct ids on purpose: symmetric fixtures (user1/user2) hide an inverted
 // sender/recipient ternary, which is the easiest bug to introduce here.
@@ -54,6 +56,8 @@ describe('RelationshipsService', () => {
   let service: RelationshipsService;
   let relationshipRepository: { find: jest.Mock };
   let userProfilesService: { getUserProfiles: jest.Mock };
+  let outboxService: { pushEvent: jest.Mock };
+  let dataSource: { transaction: jest.Mock };
 
   beforeEach(async () => {
     // The service builds its RabbitMQ client in the constructor instead of
@@ -65,7 +69,10 @@ describe('RelationshipsService', () => {
     } as never);
 
     relationshipRepository = { find: jest.fn() };
+
     userProfilesService = { getUserProfiles: jest.fn() };
+    outboxService = { pushEvent: jest.fn() };
+    dataSource = { transaction: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -75,6 +82,8 @@ describe('RelationshipsService', () => {
           useValue: relationshipRepository,
         },
         { provide: UserProfilesService, useValue: userProfilesService },
+        { provide: OutboxService, useValue: outboxService },
+        { provide: DataSource, useValue: dataSource }
       ],
     }).compile();
 
