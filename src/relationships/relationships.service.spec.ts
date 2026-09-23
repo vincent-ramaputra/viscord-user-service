@@ -83,7 +83,7 @@ describe('RelationshipsService', () => {
         },
         { provide: UserProfilesService, useValue: userProfilesService },
         { provide: OutboxService, useValue: outboxService },
-        { provide: DataSource, useValue: dataSource }
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 

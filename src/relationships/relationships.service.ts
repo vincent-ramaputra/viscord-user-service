@@ -54,7 +54,7 @@ export class RelationshipsService {
     });
   }
   async create(
-    senderId: string,
+    userId: string,
     dto: CreateRelationshipDto,
   ): Promise<Result<RelationshipResponseDTO>> {
     const recipientProfileResponse =
@@ -70,7 +70,7 @@ export class RelationshipsService {
 
     const recipient = recipientProfileResponse.data;
 
-    if (recipient.id === senderId) {
+    if (recipient.id === userId) {
       return {
         status: HttpStatus.BAD_REQUEST,
         message: "Hm, didn't work. Double check that the username is correct.",
@@ -80,14 +80,14 @@ export class RelationshipsService {
 
     const existingRelationship = await this.relationshipRepository.findOne({
       where: [
-        { senderId: senderId, recipientId: recipient.id },
-        { recipientId: senderId, senderId: recipient.id },
+        { senderId: userId, recipientId: recipient.id },
+        { recipientId: userId, senderId: recipient.id },
       ],
     });
 
     if (!existingRelationship) {
       const senderProfileResponse =
-        await this.userProfilesService.getById(senderId);
+        await this.userProfilesService.getById(userId);
       if (senderProfileResponse.status != HttpStatus.OK) {
         this.logger.error(
           { err: senderProfileResponse.message },
@@ -101,7 +101,7 @@ export class RelationshipsService {
       }
 
       const relationship: Relationship = new Relationship();
-      relationship.senderId = senderId;
+      relationship.senderId = userId;
       relationship.recipientId = recipient.id;
       relationship.type = RelationshipType.Pending;
 
@@ -154,8 +154,8 @@ export class RelationshipsService {
         data: null,
       };
     } else if (existingRelationship.type === RelationshipType.Pending) {
-      if (existingRelationship.senderId != senderId) {
-        const response = await this.acceptRequest(existingRelationship);
+      if (existingRelationship.recipientId === userId) {
+        const response = await this.acceptRequest(userId, existingRelationship);
         if (response.status !== HttpStatus.NO_CONTENT) {
           return {
             status: HttpStatus.BAD_REQUEST,
@@ -179,9 +179,9 @@ export class RelationshipsService {
       }
     } else if (
       existingRelationship.type === RelationshipType.Blocked &&
-      existingRelationship.senderId === senderId
+      existingRelationship.senderId === userId
     ) {
-      return this.update(senderId, existingRelationship.id, {
+      return this.update(userId, existingRelationship.id, {
         type: RelationshipType.Friends,
       });
     }
@@ -367,7 +367,7 @@ export class RelationshipsService {
       return {
         status: HttpStatus.FORBIDDEN,
         message: 'Invalid action',
-        data: null
+        data: null,
       };
     }
 
@@ -435,7 +435,8 @@ export class RelationshipsService {
 
       if (
         !relationship ||
-        (relationship.senderId !== userId && relationship.recipientId !== userId)
+        (relationship.senderId !== userId &&
+          relationship.recipientId !== userId)
       ) {
         return {
           status: HttpStatus.BAD_REQUEST,
