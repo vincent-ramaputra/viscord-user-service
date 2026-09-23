@@ -21,7 +21,7 @@ import { OutboxModule } from './outbox/outbox.module';
       pinoHttp: {
         level: process.env.NODE_ENV == 'production' ? 'info' : 'debug',
         formatters: {
-          level: (label: string) => ({ level: label })
+          level: (label: string) => ({ level: label }),
         },
         redact: [
           'req.headers.cookie',
@@ -34,16 +34,16 @@ import { OutboxModule } from './outbox/outbox.module';
               id: req.id,
               method: req.method,
               url: req.url,
-              'x-forwarded-uri': req.headers['x-forwarded-uri']
-            }
+              'x-forwarded-uri': req.headers['x-forwarded-uri'],
+            };
           },
           res(res: ServerResponse) {
             return {
-              statusCode: res.statusCode
+              statusCode: res.statusCode,
             };
-          }
-        }
-      }
+          },
+        },
+      },
     }),
     DatabaseModule,
     UserProfilesModule,
@@ -55,4 +55,4 @@ import { OutboxModule } from './outbox/outbox.module';
   ],
   providers: [StorageService],
 })
-export class AppModule { }
+export class AppModule {}

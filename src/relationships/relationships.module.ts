@@ -14,7 +14,7 @@ import { OutboxModule } from 'src/outbox/outbox.module';
     UsersModule,
     forwardRef(() => UserProfilesModule),
     TypeOrmModule.forFeature([Relationship]),
-    OutboxModule
+    OutboxModule,
   ],
   exports: [RelationshipsService],
 })
