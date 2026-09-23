@@ -278,7 +278,7 @@ export class RelationshipsService {
     if (dto.type === RelationshipType.Blocked) {
       return this.blockUserUpdate(userId, relationship);
     } else if (dto.type === RelationshipType.Friends) {
-      return this.acceptRequest(relationship);
+      return this.acceptRequest(userId, relationship);
     } else {
       return {
         status: HttpStatus.BAD_REQUEST,
@@ -349,6 +349,7 @@ export class RelationshipsService {
   }
 
   private async acceptRequest(
+    userId: string,
     relationship: Relationship,
   ): Promise<Result<null>> {
     if (
@@ -359,6 +360,14 @@ export class RelationshipsService {
         status: HttpStatus.BAD_REQUEST,
         message: 'Cannot befriend this user',
         data: null,
+      };
+    }
+
+    if (userId !== relationship.recipientId) {
+      return {
+        status: HttpStatus.FORBIDDEN,
+        message: 'Invalid action',
+        data: null
       };
     }
 
@@ -426,7 +435,7 @@ export class RelationshipsService {
 
       if (
         !relationship ||
-        (relationship.senderId != userId && relationship.recipientId != userId)
+        (relationship.senderId !== userId && relationship.recipientId !== userId)
       ) {
         return {
           status: HttpStatus.BAD_REQUEST,
