@@ -66,6 +66,15 @@ describe('OutboxService', () => {
       expect(gatewayMQ.emit).not.toHaveBeenCalled();
     });
 
+    it('should do nothing when polling a message with invalid route', async () => {
+      const message = buildMessage({event: null});
+      outboxRepository.findOne.mockResolvedValue(message);
+
+      await service.pollOutbox();
+
+      expect(gatewayMQ.emit).not.toHaveBeenCalled();
+    });
+
     it('should emit event with the correct pattern', async () => {
       const message = buildMessage();
 
@@ -78,7 +87,7 @@ describe('OutboxService', () => {
         ...message,
         id: message.id,
         publishedAt: expect.any(Date)
-      } as Outbox)
-    })
+      } as Outbox);
+    });
   })
 });

@@ -3,7 +3,7 @@ import { OutboxService } from './outbox.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Outbox } from './entities/outbox.entity';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { GATEWAY_QUEUE } from 'src/constants/events';
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -29,6 +29,7 @@ import { ScheduleModule } from '@nestjs/schedule';
         }
       }]
     })
-  ]
+  ],
+  exports: [OutboxService]
 })
 export class OutboxModule { }
