@@ -24,7 +24,7 @@ export class UsersService {
         message: 'Invalid request',
       };
     }
-    
+
     const userProfileResponse: Result<UserProfileResponseDTO> =
       await this.userProfilesService.getById(id);
 
@@ -49,7 +49,10 @@ export class UsersService {
         };
       }
     } catch (error) {
-      this.logger.error({ err: error.message }, 'failed to retrieve user identity');
+      this.logger.error(
+        { err: error.message },
+        'failed to retrieve user identity',
+      );
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,

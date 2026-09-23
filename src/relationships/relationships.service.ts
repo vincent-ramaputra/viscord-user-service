@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { CreateRelationshipDto } from './dto/create-relationship.dto';
 import { UpdateRelationshipDto } from './dto/update-relationship.dto';
-import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Relationship } from './entities/relationship.entity';
 import { DataSource, Repository } from 'typeorm';
 import { UserProfilesService } from 'src/user-profiles/user-profiles.service';
@@ -22,9 +22,6 @@ import {
 import { toRelationshipResponseDTO } from 'src/mappings/relationship.mapper';
 import { Payload } from 'src/interfaces/payload.dto';
 import {
-  FRIEND_ADDED_EVENT,
-  FRIEND_REMOVED_EVENT,
-  FRIEND_REQUEST_SENT_EVENT,
   GATEWAY_QUEUE,
   USER_PRESENCE_UPDATE_EVENT,
 } from 'src/constants/events';
@@ -45,7 +42,7 @@ export class RelationshipsService {
     private readonly outboxService: OutboxService,
     @InjectRepository(Relationship)
     private readonly relationshipRepository: Repository<Relationship>,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
   ) {
     this.gatewayMQ = ClientProxyFactory.create({
       transport: Transport.RMQ,
@@ -89,13 +86,17 @@ export class RelationshipsService {
     });
 
     if (!existingRelationship) {
-      const senderProfileResponse = await this.userProfilesService.getById(senderId);
+      const senderProfileResponse =
+        await this.userProfilesService.getById(senderId);
       if (senderProfileResponse.status != HttpStatus.OK) {
-        this.logger.error({ err: senderProfileResponse.message }, 'Unable to retrieve sender data');
+        this.logger.error(
+          { err: senderProfileResponse.message },
+          'Unable to retrieve sender data',
+        );
         return {
           status: HttpStatus.INTERNAL_SERVER_ERROR,
           message: 'Unable to retrieve user data',
-          data: null
+          data: null,
         };
       }
 
@@ -108,19 +109,22 @@ export class RelationshipsService {
         await this.dataSource.transaction(async (manager) => {
           await manager.save(relationship);
 
-          const payload: RelationshipResponseDTO = toRelationshipResponseDTO(relationship);
+          const payload: RelationshipResponseDTO =
+            toRelationshipResponseDTO(relationship);
           payload.user = senderProfileResponse.data;
           payload.type = RelationshipType.PendingReceived;
 
-          await this.outboxService.pushEvent({
-            event: OutboxEvent.FriendRequestSent,
-            data: {
-              recipients: [relationship.recipientId],
-              data: payload
-            } as Payload<RelationshipResponseDTO>
-          }, manager);
-
-        })
+          await this.outboxService.pushEvent(
+            {
+              event: OutboxEvent.FriendRequestSent,
+              data: {
+                recipients: [relationship.recipientId],
+                data: payload,
+              } as Payload<RelationshipResponseDTO>,
+            },
+            manager,
+          );
+        });
       } catch (error) {
         this.logger.error(
           { err: error.message },
@@ -133,7 +137,8 @@ export class RelationshipsService {
         };
       }
 
-      const responseDTO: RelationshipResponseDTO = toRelationshipResponseDTO(relationship);
+      const responseDTO: RelationshipResponseDTO =
+        toRelationshipResponseDTO(relationship);
       responseDTO.user = recipient;
       return {
         status: HttpStatus.OK,
@@ -256,7 +261,8 @@ export class RelationshipsService {
       };
     }
 
-    const relationship: Relationship = await this.relationshipRepository.findOneBy({ id: id });
+    const relationship: Relationship =
+      await this.relationshipRepository.findOneBy({ id: id });
 
     if (
       !relationship ||
@@ -375,13 +381,16 @@ export class RelationshipsService {
         const payload = toRelationshipResponseDTO(relationship);
         payload.user = recipientResponse.data;
 
-        await this.outboxService.pushEvent({
-          event: OutboxEvent.FriendRequestAccepted,
-          data: {
-            recipients: [relationship.senderId],
-            data: payload
-          } as Payload<RelationshipResponseDTO>
-        }, manager);
+        await this.outboxService.pushEvent(
+          {
+            event: OutboxEvent.FriendRequestAccepted,
+            data: {
+              recipients: [relationship.senderId],
+              data: payload,
+            } as Payload<RelationshipResponseDTO>,
+          },
+          manager,
+        );
       });
     } catch (error) {
       this.logger.error(
@@ -392,7 +401,7 @@ export class RelationshipsService {
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'Failed to accept friend request',
-        data: null
+        data: null,
       };
     }
 
@@ -462,17 +471,20 @@ export class RelationshipsService {
 
         const payload = toRelationshipResponseDTO(relationship);
         payload.user = senderResponse.data;
-        await this.outboxService.pushEvent({
-          event: OutboxEvent.FriendRemoved,
-          data: {
-            recipients: [
-              relationship.senderId !== userId
-                ? relationship.senderId
-                : relationship.recipientId,
-            ],
-            data: payload,
-          }
-        }, manager);
+        await this.outboxService.pushEvent(
+          {
+            event: OutboxEvent.FriendRemoved,
+            data: {
+              recipients: [
+                relationship.senderId !== userId
+                  ? relationship.senderId
+                  : relationship.recipientId,
+              ],
+              data: payload,
+            },
+          },
+          manager,
+        );
       });
     } catch (error) {
       this.logger.error(

@@ -7,29 +7,32 @@ import { ConfigService } from '@nestjs/config';
 import { GATEWAY_QUEUE } from 'src/constants/events';
 import { ScheduleModule } from '@nestjs/schedule';
 
-
 @Module({
   providers: [OutboxService],
   imports: [
     TypeOrmModule.forFeature([Outbox]),
     ScheduleModule.forRoot(),
     ClientsModule.registerAsync({
-      clients: [{
-        name: 'GATEWAY_MQ',
-        inject: [ConfigService],
-        useFactory: (configService: ConfigService) => {
-          return {
-            transport: Transport.RMQ,
-            options: {
-              urls: [`amqp://${configService.get('RMQ_HOST')}:${configService.get('RMQ_PORT')}`],
-              queue: GATEWAY_QUEUE,
-              queueOptions: { durable: true },
-            }
-          }
-        }
-      }]
-    })
+      clients: [
+        {
+          name: 'GATEWAY_MQ',
+          inject: [ConfigService],
+          useFactory: (configService: ConfigService) => {
+            return {
+              transport: Transport.RMQ,
+              options: {
+                urls: [
+                  `amqp://${configService.get('RMQ_HOST')}:${configService.get('RMQ_PORT')}`,
+                ],
+                queue: GATEWAY_QUEUE,
+                queueOptions: { durable: true },
+              },
+            };
+          },
+        },
+      ],
+    }),
   ],
-  exports: [OutboxService]
+  exports: [OutboxService],
 })
-export class OutboxModule { }
+export class OutboxModule {}

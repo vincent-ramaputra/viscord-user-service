@@ -5,23 +5,22 @@ import { Outbox } from './entities/outbox.entity';
 import { OutboxEvent } from './enums/outbox-event.enum';
 import { FRIEND_REQUEST_SENT_EVENT } from 'src/constants/events';
 
-
 function buildMessage(overrides: Partial<Outbox> = {}): Outbox {
   return {
     id: '1',
     event: OutboxEvent.FriendRequestSent,
     data: {
-      'foo': 'bar'
+      foo: 'bar',
     },
     publishedAt: null,
-    ...overrides
+    ...overrides,
   };
 }
 
 describe('OutboxService', () => {
   let service: OutboxService;
   let gatewayMQ: { emit: jest.Mock };
-  let outboxRepository: { findOne: jest.Mock, save: jest.Mock }
+  let outboxRepository: { findOne: jest.Mock; save: jest.Mock };
 
   beforeAll(async () => {
     gatewayMQ = {
@@ -30,21 +29,20 @@ describe('OutboxService', () => {
 
     outboxRepository = {
       findOne: jest.fn(),
-      save: jest.fn()
-    }
+      save: jest.fn(),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OutboxService,
         {
           provide: 'GATEWAY_MQ',
-          useValue: gatewayMQ
+          useValue: gatewayMQ,
         },
         {
           provide: getRepositoryToken(Outbox),
-          useValue: outboxRepository
-        }
+          useValue: outboxRepository,
+        },
       ],
-
     }).compile();
 
     service = module.get<OutboxService>(OutboxService);
@@ -52,7 +50,7 @@ describe('OutboxService', () => {
 
   beforeEach(() => {
     jest.restoreAllMocks();
-  })
+  });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
@@ -60,14 +58,14 @@ describe('OutboxService', () => {
 
   describe('pollOutbox', () => {
     it('does nothing when there is no published message', async () => {
-      outboxRepository.findOne.mockResolvedValue(null)
+      outboxRepository.findOne.mockResolvedValue(null);
       await service.pollOutbox();
 
       expect(gatewayMQ.emit).not.toHaveBeenCalled();
     });
 
     it('should do nothing when polling a message with invalid route', async () => {
-      const message = buildMessage({event: null});
+      const message = buildMessage({ event: null });
       outboxRepository.findOne.mockResolvedValue(message);
 
       await service.pollOutbox();
@@ -82,12 +80,15 @@ describe('OutboxService', () => {
 
       await service.pollOutbox();
 
-      expect(gatewayMQ.emit).toHaveBeenCalledWith(FRIEND_REQUEST_SENT_EVENT, message.data);
+      expect(gatewayMQ.emit).toHaveBeenCalledWith(
+        FRIEND_REQUEST_SENT_EVENT,
+        message.data,
+      );
       expect(outboxRepository.save).toHaveBeenCalledWith({
         ...message,
         id: message.id,
-        publishedAt: expect.any(Date)
+        publishedAt: expect.any(Date),
       } as Outbox);
     });
-  })
+  });
 });
