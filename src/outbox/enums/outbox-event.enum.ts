@@ -1,4 +1,6 @@
 
 export enum OutboxEvent {
-    FriendRequestSent = 'FriendRequestSent'
+    FriendRequestSent = 'FriendRequestSent',
+    FriendRequestAccepted = 'FriendRequestAccepted',
+    FriendRemoved = 'FriendRemoved'
 }
