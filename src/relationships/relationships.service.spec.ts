@@ -1,4 +1,4 @@
-import { HttpStatus } from '@nestjs/common';
+import { HttpStatus, Logger } from '@nestjs/common';
 import { ClientProxyFactory } from '@nestjs/microservices';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -11,6 +11,12 @@ import { UserStatus } from 'src/user-profiles/enums/user-status.enum';
 import { UserProfilesService } from 'src/user-profiles/user-profiles.service';
 import { OutboxService } from 'src/outbox/outbox.service';
 import { DataSource } from 'typeorm';
+import { Result } from 'src/interfaces/result.interface';
+import { CreateRelationshipDto } from './dto/create-relationship.dto';
+import { Outbox } from 'src/outbox/entities/outbox.entity';
+import { OutboxEvent } from 'src/outbox/enums/outbox-event.enum';
+import { RelationshipResponseDTO } from './dto/relationship-response.dto';
+import { Payload } from 'src/interfaces/payload.dto';
 
 // Distinct ids on purpose: symmetric fixtures (user1/user2) hide an inverted
 // sender/recipient ternary, which is the easiest bug to introduce here.
@@ -52,12 +58,30 @@ function profilesOk(ids: string[]) {
   };
 }
 
+function buildResult<T>(overrides: Partial<Result<T>>): Result<T> {
+  return {
+    status: HttpStatus.OK,
+    data: null,
+    message: 'Success',
+    ...overrides,
+  };
+}
+
+function buildRelationshipRequest(username: string): CreateRelationshipDto {
+  return { username: username };
+}
+
 describe('RelationshipsService', () => {
   let service: RelationshipsService;
-  let relationshipRepository: { find: jest.Mock };
-  let userProfilesService: { getUserProfiles: jest.Mock };
+  let relationshipRepository: { find: jest.Mock; findOne: jest.Mock };
+  let userProfilesService: {
+    getUserProfiles: jest.Mock;
+    getProfileByUsername: jest.Mock;
+    getById: jest.Mock;
+  };
   let outboxService: { pushEvent: jest.Mock };
   let dataSource: { transaction: jest.Mock };
+  let manager: { save: jest.Mock };
 
   beforeEach(async () => {
     // The service builds its RabbitMQ client in the constructor instead of
@@ -68,11 +92,20 @@ describe('RelationshipsService', () => {
       close: jest.fn(),
     } as never);
 
-    relationshipRepository = { find: jest.fn() };
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
 
-    userProfilesService = { getUserProfiles: jest.fn() };
+    relationshipRepository = { find: jest.fn(), findOne: jest.fn() };
+
+    userProfilesService = {
+      getUserProfiles: jest.fn(),
+      getProfileByUsername: jest.fn(),
+      getById: jest.fn(),
+    };
     outboxService = { pushEvent: jest.fn() };
-    dataSource = { transaction: jest.fn() };
+    manager = {
+      save: jest.fn(),
+    };
+    dataSource = { transaction: jest.fn(async (cb) => cb(manager)) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -83,7 +116,7 @@ describe('RelationshipsService', () => {
         },
         { provide: UserProfilesService, useValue: userProfilesService },
         { provide: OutboxService, useValue: outboxService },
-        { provide: DataSource, useValue: dataSource }
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 
@@ -256,6 +289,283 @@ describe('RelationshipsService', () => {
 
       expect(result.status).toBe(HttpStatus.OK);
       expect(result.data).toEqual([]);
+    });
+  });
+
+  describe('create', () => {
+    it('returns 400 when adding invalid username', async () => {
+      userProfilesService.getProfileByUsername.mockResolvedValue(
+        buildResult<UserProfileResponseDTO>({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Username not found',
+        }),
+      );
+
+      const dto: CreateRelationshipDto = buildRelationshipRequest('bob');
+      const result = await service.create(ME, dto);
+
+      expect(result.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when the user adds themselves', async () => {
+      userProfilesService.getProfileByUsername.mockResolvedValue(
+        buildResult<UserProfileResponseDTO>({ data: buildProfile(ME) }),
+      );
+
+      const dto: CreateRelationshipDto = buildRelationshipRequest('me');
+      const result = await service.create(ME, dto);
+
+      expect(result.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    describe('when relationship does not exist', () => {
+      beforeEach(() => {
+        manager.save.mockImplementation(async (entity) => {
+          entity.id = 'rel-new';
+          return entity;
+        });
+        userProfilesService.getProfileByUsername.mockResolvedValue(
+          buildResult<UserProfileResponseDTO>({
+            status: HttpStatus.OK,
+            data: buildProfile(ALICE),
+          }),
+        );
+        relationshipRepository.findOne.mockResolvedValue(null);
+        userProfilesService.getById.mockResolvedValue(
+          buildResult<UserProfileResponseDTO>({ data: buildProfile(ME) }),
+        );
+      });
+
+      it('returns 500 when the service cannot retrieve sender data', async () => {
+        userProfilesService.getById.mockResolvedValue(
+          buildResult<UserProfileResponseDTO>({
+            status: HttpStatus.INTERNAL_SERVER_ERROR,
+            message: 'User data not found',
+          }),
+        );
+
+        const result = await service.create(
+          ME,
+          buildRelationshipRequest('alice'),
+        );
+
+        expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(userProfilesService.getById).toHaveBeenCalledWith(ME);
+        expect(dataSource.transaction).not.toHaveBeenCalled();
+        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+      });
+
+      it('returns 500 and not push event when save failed', async () => {
+        manager.save.mockRejectedValue(new Error('database down'));
+
+        const result = await service.create(
+          ME,
+          buildRelationshipRequest('alice'),
+        );
+
+        expect(manager.save).toHaveBeenCalled();
+        expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(result.data).toBeNull();
+        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+      });
+
+      it('returns 500 when transaction failed', async () => {
+        outboxService.pushEvent.mockRejectedValue(new Error('outbox down'));
+
+        const result = await service.create(
+          ME,
+          buildRelationshipRequest('alice'),
+        );
+
+        expect(outboxService.pushEvent).toHaveBeenCalled();
+        expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(result.data).toBeNull();
+      });
+
+      it('saves a pending request and push a new message in the same transaction', async () => {
+        const result = await service.create(
+          ME,
+          buildRelationshipRequest('alice'),
+        );
+
+        expect(manager.save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            senderId: ME,
+            recipientId: ALICE,
+            type: RelationshipType.Pending,
+          } as Relationship),
+        );
+        expect(outboxService.pushEvent).toHaveBeenCalledWith(
+          {
+            event: OutboxEvent.FriendRequestSent,
+            data: expect.objectContaining({
+              recipients: [ALICE],
+              data: expect.objectContaining({
+                id: 'rel-new',
+                type: RelationshipType.PendingReceived,
+                user: expect.objectContaining({
+                  id: ME,
+                } as UserProfileResponseDTO),
+              }),
+            } as Payload<RelationshipResponseDTO>),
+          } as Pick<Outbox, 'data' | 'event'>,
+          manager,
+        );
+
+        expect(result.status).toBe(HttpStatus.OK);
+        expect(result.data.type).toBe(RelationshipType.Pending);
+        expect(result.data.user.id).toBe(ALICE);
+      });
+    });
+
+    describe('when relationship exist', () => {
+      beforeEach(() => {
+        manager.save.mockImplementation((entity) => entity);
+        userProfilesService.getProfileByUsername.mockResolvedValue(
+          buildResult<UserProfileResponseDTO>({ data: buildProfile(ALICE) }),
+        );
+      });
+
+      it('returns 400 when relationship is already friends', async () => {
+        relationshipRepository.findOne.mockResolvedValue(
+          buildRelationship({
+            recipientId: ALICE,
+            senderId: ME,
+            type: RelationshipType.Friends,
+          }),
+        );
+
+        const result = await service.create(
+          ME,
+          buildRelationshipRequest('alice'),
+        );
+
+        expect(result.status).toBe(HttpStatus.BAD_REQUEST);
+        expect(manager.save).not.toHaveBeenCalled();
+        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+      });
+
+      it('returns 200 and does nothing when existing relationship sender is the user', async () => {
+        relationshipRepository.findOne.mockResolvedValue(
+          buildRelationship({
+            recipientId: ALICE,
+            senderId: ME,
+            type: RelationshipType.Pending,
+          }),
+        );
+
+        const result = await service.create(
+          ME,
+          buildRelationshipRequest('alice'),
+        );
+
+        expect(result.status).toBe(HttpStatus.OK);
+        expect(manager.save).not.toHaveBeenCalled();
+        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+      });
+
+      it("returns 500 when the accepter's profile can't be loaded", async () => {
+        userProfilesService.getById.mockResolvedValue(
+          buildResult<UserProfileResponseDTO>({
+            status: HttpStatus.INTERNAL_SERVER_ERROR,
+          }),
+        );
+        const existing = buildRelationship({
+          recipientId: ME,
+          senderId: ALICE,
+          type: RelationshipType.Pending,
+        });
+        relationshipRepository.findOne.mockResolvedValue(existing);
+
+        const result = await service.create(
+          ME,
+          buildRelationshipRequest('alice'),
+        );
+
+        expect(userProfilesService.getById).toHaveBeenCalledWith(ME);
+        expect(manager.save).not.toHaveBeenCalled();
+        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+      });
+
+      it('accepts the pending request when the recipient adds the sender back', async () => {
+        userProfilesService.getById.mockResolvedValue(
+          buildResult<UserProfileResponseDTO>({ data: buildProfile(ME) }),
+        );
+        const existing = buildRelationship({
+          recipientId: ME,
+          senderId: ALICE,
+          type: RelationshipType.Pending,
+        });
+        relationshipRepository.findOne.mockResolvedValue(existing);
+        const result = await service.create(
+          ME,
+          buildRelationshipRequest('alice'),
+        );
+
+        expect(userProfilesService.getById).toHaveBeenCalledWith(ME);
+        expect(manager.save).toHaveBeenCalledTimes(1);
+        expect(manager.save.mock.calls[0][0]).toBe(existing);
+        expect(existing.type).toBe(RelationshipType.Friends);
+        expect(outboxService.pushEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            event: OutboxEvent.FriendRequestAccepted,
+            data: {
+              recipients: [ALICE],
+              data: expect.objectContaining({
+                user: expect.objectContaining({
+                  id: ME,
+                }) as UserProfileResponseDTO,
+              } as RelationshipResponseDTO),
+            } as Payload<RelationshipResponseDTO>,
+          } as Pick<Outbox, 'data' | 'event'>),
+          manager,
+        );
+        expect(result.status).toBe(HttpStatus.OK);
+      });
+
+      it('returns 409 when the user tries to add a user they have blocked', async () => {
+        const existing = buildRelationship({
+          recipientId: ALICE,
+          senderId: ME,
+          type: RelationshipType.Blocked,
+        });
+        relationshipRepository.findOne.mockResolvedValue(existing);
+
+        const result = await service.create(
+          ME,
+          buildRelationshipRequest('alice'),
+        );
+
+        expect(result.status).toBe(HttpStatus.CONFLICT);
+        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(manager.save).not.toHaveBeenCalled();
+      });
+
+      it('returns 400 when the user tries to add a user that blocked them', async () => {
+        const existing = buildRelationship({
+          recipientId: ME,
+          senderId: ALICE,
+          type: RelationshipType.Blocked,
+        });
+        relationshipRepository.findOne.mockResolvedValue(existing);
+
+        const result = await service.create(
+          ME,
+          buildRelationshipRequest('alice'),
+        );
+
+        expect(result).toEqual({
+          status: HttpStatus.BAD_REQUEST,
+          message:
+            "Hm, didn't work. Double check that the username is correct.",
+          data: null,
+        });
+        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(manager.save).not.toHaveBeenCalled();
+      });
     });
   });
 });
