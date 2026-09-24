@@ -157,12 +157,7 @@ export class RelationshipsService {
       if (existingRelationship.recipientId === userId) {
         const response = await this.acceptRequest(userId, existingRelationship);
         if (response.status !== HttpStatus.NO_CONTENT) {
-          return {
-            status: HttpStatus.BAD_REQUEST,
-            message:
-              "Hm, didn't work. Double check that the username is correct.",
-            data: null,
-          };
+          return response;
         }
 
         return {
@@ -181,9 +176,11 @@ export class RelationshipsService {
       existingRelationship.type === RelationshipType.Blocked &&
       existingRelationship.senderId === userId
     ) {
-      return this.update(userId, existingRelationship.id, {
-        type: RelationshipType.Friends,
-      });
+      return {
+        status: HttpStatus.CONFLICT,
+        message: 'You need to unblock this user first.',
+        data: null,
+      };
     }
     return {
       status: HttpStatus.BAD_REQUEST,
@@ -352,10 +349,7 @@ export class RelationshipsService {
     userId: string,
     relationship: Relationship,
   ): Promise<Result<null>> {
-    if (
-      relationship.type !== RelationshipType.Pending &&
-      relationship.type !== RelationshipType.Blocked
-    ) {
+    if (relationship.type !== RelationshipType.Pending) {
       return {
         status: HttpStatus.BAD_REQUEST,
         message: 'Cannot befriend this user',
@@ -371,11 +365,13 @@ export class RelationshipsService {
       };
     }
 
-    const recipientResponse = await this.userProfilesService.getById(
-      relationship.recipientId,
-    );
+    const recipientResponse = await this.userProfilesService.getById(userId);
 
     if (recipientResponse.status !== HttpStatus.OK) {
+      this.logger.error(
+        { err: recipientResponse.message, userId },
+        'failed retrieving user profile',
+      );
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'An unknown error occurred',
