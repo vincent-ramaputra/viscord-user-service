@@ -57,6 +57,14 @@ export class RelationshipsService {
     userId: string,
     dto: CreateRelationshipDto,
   ): Promise<Result<RelationshipResponseDTO>> {
+    if (!userId || userId.length == 0) {
+      return {
+        status: HttpStatus.UNAUTHORIZED,
+        message: 'Unauthorized',
+        data: null,
+      };
+    }
+
     const recipientProfileResponse =
       await this.userProfilesService.getProfileByUsername(dto.username);
 
@@ -192,8 +200,8 @@ export class RelationshipsService {
   async findAll(userId: string): Promise<Result<RelationshipResponseDTO[]>> {
     if (!userId || userId.length === 0) {
       return {
-        status: HttpStatus.BAD_REQUEST,
-        message: 'Invalid user id',
+        status: HttpStatus.UNAUTHORIZED,
+        message: 'Unauthorized',
         data: null,
       };
     }
@@ -254,6 +262,14 @@ export class RelationshipsService {
       return {
         status: HttpStatus.BAD_REQUEST,
         message: 'Invalid id',
+        data: null,
+      };
+    }
+
+    if (!userId || userId.length === 0) {
+      return {
+        status: HttpStatus.UNAUTHORIZED,
+        message: 'Unauthorized',
         data: null,
       };
     }
@@ -422,6 +438,14 @@ export class RelationshipsService {
   }
 
   async remove(userId: string, id: string): Promise<Result<null>> {
+    if (!userId || userId.length == 0) {
+      return {
+        status: HttpStatus.UNAUTHORIZED,
+        message: 'Unauthorized',
+        data: null,
+      };
+    }
+
     if (!id || id.length === 0) {
       return {
         status: HttpStatus.BAD_REQUEST,
@@ -433,11 +457,7 @@ export class RelationshipsService {
     try {
       relationship = await this.relationshipRepository.findOneBy({ id: id });
 
-      if (
-        !relationship ||
-        (relationship.senderId !== userId &&
-          relationship.recipientId !== userId)
-      ) {
+      if (!relationship) {
         return {
           status: HttpStatus.BAD_REQUEST,
           message: 'Invalid request',
@@ -445,12 +465,22 @@ export class RelationshipsService {
         };
       }
       if (
-        relationship.type === RelationshipType.Blocked &&
-        relationship.senderId != userId
+        relationship.senderId !== userId &&
+        relationship.recipientId !== userId
       ) {
         return {
-          status: HttpStatus.BAD_REQUEST,
-          message: 'Invalid request',
+          status: HttpStatus.FORBIDDEN,
+          message: 'User is not allowed to perform this action.',
+          data: null,
+        };
+      }
+      if (
+        relationship.type === RelationshipType.Blocked &&
+        relationship.senderId !== userId
+      ) {
+        return {
+          status: HttpStatus.FORBIDDEN,
+          message: 'User is not allowed to perform this action.',
           data: null,
         };
       }
@@ -460,7 +490,7 @@ export class RelationshipsService {
         'failed to find relationship for deletion',
       );
       return {
-        status: HttpStatus.BAD_REQUEST,
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'An error occurred when deleting relationship',
         data: null,
       };
