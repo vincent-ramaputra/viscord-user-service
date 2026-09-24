@@ -474,11 +474,11 @@ export class RelationshipsService {
       }
       if (
         relationship.type === RelationshipType.Blocked &&
-        relationship.senderId != userId
+        relationship.senderId !== userId
       ) {
         return {
-          status: HttpStatus.BAD_REQUEST,
-          message: 'Invalid request',
+          status: HttpStatus.FORBIDDEN,
+          message: 'User is not allowed to perform this action.',
           data: null,
         };
       }
