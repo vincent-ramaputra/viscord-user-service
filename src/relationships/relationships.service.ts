@@ -458,15 +458,18 @@ export class RelationshipsService {
     try {
       relationship = await this.relationshipRepository.findOneBy({ id: id });
 
-      if (
-        !relationship ||
-        (relationship.senderId !== userId &&
-          relationship.recipientId !== userId)
-      ) {
+      if (!relationship) {
         return {
           status: HttpStatus.BAD_REQUEST,
           message: 'Invalid request',
           data: null,
+        };
+      }
+      if (relationship.senderId !== userId && relationship.recipientId !== userId) {
+        return {
+          status: HttpStatus.FORBIDDEN,
+          message: 'User is not allowed to perform this action.',
+          data: null
         };
       }
       if (
