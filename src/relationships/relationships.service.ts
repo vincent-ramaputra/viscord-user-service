@@ -266,7 +266,7 @@ export class RelationshipsService {
       (relationship.senderId != userId && relationship.recipientId != userId)
     ) {
       return {
-        status: HttpStatus.BAD_REQUEST,
+        status: HttpStatus.FORBIDDEN,
         message: 'Relationship not found',
         data: null,
       };
