@@ -261,13 +261,17 @@ export class RelationshipsService {
     const relationship: Relationship =
       await this.relationshipRepository.findOneBy({ id: id });
 
-    if (
-      !relationship ||
-      (relationship.senderId != userId && relationship.recipientId != userId)
-    ) {
+    if (!relationship) {
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Relationship not found',
+        data: null,
+      };
+    }
+    if (relationship.senderId != userId && relationship.recipientId != userId) {
       return {
         status: HttpStatus.FORBIDDEN,
-        message: 'Relationship not found',
+        message: 'You cannot perform this action.',
         data: null,
       };
     }
