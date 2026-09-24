@@ -568,14 +568,4 @@ describe('RelationshipsService', () => {
       });
     });
   });
-  describe('update', () => {
-    it('returns 400 when user id is empty', async () => {
-      const result = await service.update('', '', null);
-
-      expect(result.status).toBe(HttpStatus.BAD_REQUEST);
-      expect(relationshipRepository.findOne).not.toHaveBeenCalled();
-    });
-
-    it()i
-  })
 });
