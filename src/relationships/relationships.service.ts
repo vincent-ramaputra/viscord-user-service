@@ -57,12 +57,11 @@ export class RelationshipsService {
     userId: string,
     dto: CreateRelationshipDto,
   ): Promise<Result<RelationshipResponseDTO>> {
-
     if (!userId || userId.length == 0) {
       return {
         status: HttpStatus.UNAUTHORIZED,
         message: 'Unauthorized',
-        data: null
+        data: null,
       };
     }
 
@@ -443,7 +442,7 @@ export class RelationshipsService {
       return {
         status: HttpStatus.UNAUTHORIZED,
         message: 'Unauthorized',
-        data: null
+        data: null,
       };
     }
 
@@ -465,11 +464,14 @@ export class RelationshipsService {
           data: null,
         };
       }
-      if (relationship.senderId !== userId && relationship.recipientId !== userId) {
+      if (
+        relationship.senderId !== userId &&
+        relationship.recipientId !== userId
+      ) {
         return {
           status: HttpStatus.FORBIDDEN,
           message: 'User is not allowed to perform this action.',
-          data: null
+          data: null,
         };
       }
       if (
