@@ -57,6 +57,15 @@ export class RelationshipsService {
     userId: string,
     dto: CreateRelationshipDto,
   ): Promise<Result<RelationshipResponseDTO>> {
+
+    if (!userId || userId.length == 0) {
+      return {
+        status: HttpStatus.UNAUTHORIZED,
+        message: 'Unauthorized',
+        data: null
+      };
+    }
+
     const recipientProfileResponse =
       await this.userProfilesService.getProfileByUsername(dto.username);
 
@@ -192,8 +201,8 @@ export class RelationshipsService {
   async findAll(userId: string): Promise<Result<RelationshipResponseDTO[]>> {
     if (!userId || userId.length === 0) {
       return {
-        status: HttpStatus.BAD_REQUEST,
-        message: 'Invalid user id',
+        status: HttpStatus.UNAUTHORIZED,
+        message: 'Unauthorized',
         data: null,
       };
     }
@@ -254,6 +263,14 @@ export class RelationshipsService {
       return {
         status: HttpStatus.BAD_REQUEST,
         message: 'Invalid id',
+        data: null,
+      };
+    }
+
+    if (!userId || userId.length === 0) {
+      return {
+        status: HttpStatus.UNAUTHORIZED,
+        message: 'Unauthorized',
         data: null,
       };
     }
@@ -422,6 +439,14 @@ export class RelationshipsService {
   }
 
   async remove(userId: string, id: string): Promise<Result<null>> {
+    if (!userId || userId.length == 0) {
+      return {
+        status: HttpStatus.UNAUTHORIZED,
+        message: 'Unauthorized',
+        data: null
+      };
+    }
+
     if (!id || id.length === 0) {
       return {
         status: HttpStatus.BAD_REQUEST,
