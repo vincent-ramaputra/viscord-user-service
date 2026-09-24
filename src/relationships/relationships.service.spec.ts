@@ -17,6 +17,7 @@ import { Outbox } from 'src/outbox/entities/outbox.entity';
 import { OutboxEvent } from 'src/outbox/enums/outbox-event.enum';
 import { RelationshipResponseDTO } from './dto/relationship-response.dto';
 import { Payload } from 'src/interfaces/payload.dto';
+import { UpdateRelationshipDto } from './dto/update-relationship.dto';
 
 // Distinct ids on purpose: symmetric fixtures (user1/user2) hide an inverted
 // sender/recipient ternary, which is the easiest bug to introduce here.
@@ -73,7 +74,11 @@ function buildRelationshipRequest(username: string): CreateRelationshipDto {
 
 describe('RelationshipsService', () => {
   let service: RelationshipsService;
-  let relationshipRepository: { find: jest.Mock; findOne: jest.Mock };
+  let relationshipRepository: {
+    find: jest.Mock;
+    findOne: jest.Mock;
+    findOneBy: jest.Mock;
+  };
   let userProfilesService: {
     getUserProfiles: jest.Mock;
     getProfileByUsername: jest.Mock;
@@ -94,7 +99,11 @@ describe('RelationshipsService', () => {
 
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
 
-    relationshipRepository = { find: jest.fn(), findOne: jest.fn() };
+    relationshipRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      findOneBy: jest.fn(),
+    };
 
     userProfilesService = {
       getUserProfiles: jest.fn(),
@@ -132,10 +141,11 @@ describe('RelationshipsService', () => {
   });
 
   describe('findAll', () => {
-    it('rejects an empty user id without querying', async () => {
+
+    it('returns 401 when user id is invalid without querying', async () => {
       const result = await service.findAll('');
 
-      expect(result.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(result.status).toBe(HttpStatus.UNAUTHORIZED);
       expect(relationshipRepository.find).not.toHaveBeenCalled();
     });
 
@@ -293,6 +303,14 @@ describe('RelationshipsService', () => {
   });
 
   describe('create', () => {
+    it('returns 401 when user id is invalid', async () => {
+      const dto: CreateRelationshipDto = buildRelationshipRequest('bob');
+      const result = await service.create('', dto);
+
+      expect(result.status).toBe(HttpStatus.UNAUTHORIZED);
+      expect(manager.save).not.toHaveBeenCalled()
+    });
+
     it('returns 400 when adding invalid username', async () => {
       userProfilesService.getProfileByUsername.mockResolvedValue(
         buildResult<UserProfileResponseDTO>({
@@ -495,6 +513,7 @@ describe('RelationshipsService', () => {
           buildResult<UserProfileResponseDTO>({ data: buildProfile(ME) }),
         );
         const existing = buildRelationship({
+          id: 'rel-123',
           recipientId: ME,
           senderId: ALICE,
           type: RelationshipType.Pending,
@@ -515,6 +534,7 @@ describe('RelationshipsService', () => {
             data: {
               recipients: [ALICE],
               data: expect.objectContaining({
+                id: 'rel-123',
                 user: expect.objectContaining({
                   id: ME,
                 }) as UserProfileResponseDTO,
@@ -569,13 +589,222 @@ describe('RelationshipsService', () => {
     });
   });
   describe('update', () => {
-    it('returns 400 when user id is empty', async () => {
-      const result = await service.update('', '', null);
+    it('returns 401 when user id is empty', async () => {
+      const existing = buildRelationship({ senderId: ME, recipientId: ALICE });
+      relationshipRepository.findOneBy.mockResolvedValue(existing);
 
-      expect(result.status).toBe(HttpStatus.BAD_REQUEST);
-      expect(relationshipRepository.findOne).not.toHaveBeenCalled();
+      const result = await service.update('', existing.id, null);
+
+      expect(result.status).toBe(HttpStatus.UNAUTHORIZED);
+      expect(relationshipRepository.findOneBy).not.toHaveBeenCalled();
     });
 
-    it()
+    it('returns 400 when relationship is not found', async () => {
+      relationshipRepository.findOneBy.mockResolvedValue(null);
+
+      const result = await service.update(ME, 'rel-123', {
+        type: RelationshipType.Friends,
+      });
+
+      expect(result.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(relationshipRepository.findOneBy).toHaveBeenCalledWith({
+        id: 'rel-123',
+      });
+    });
+
+    it('returns 403 when user is not neither sender or recipient', async () => {
+      const existing = buildRelationship({ senderId: BOB, recipientId: ALICE });
+      relationshipRepository.findOneBy.mockResolvedValue(existing);
+
+      const result = await service.update(ME, existing.id, {
+        type: RelationshipType.Friends,
+      });
+
+      expect(result.status).toBe(HttpStatus.FORBIDDEN);
+      expect(relationshipRepository.findOneBy).toHaveBeenCalledWith({
+        id: existing.id,
+      });
+    });
+
+    it('returns 400 when the updated relationship type is invalid', async () => {
+      const existing = buildRelationship({ senderId: BOB, recipientId: ALICE });
+      relationshipRepository.findOneBy.mockResolvedValue(existing);
+
+      const result = await service.update(ME, existing.id, {
+        type: RelationshipType.None,
+      } as UpdateRelationshipDto);
+    });
+
+    describe('when accepting friend request', () => {
+      beforeEach(() => {
+        manager.save.mockImplementation((entity) => entity);
+      });
+
+      it('returns 400 when accepting a request for non pending relationship', async () => {
+        const existing = buildRelationship({
+          senderId: ALICE,
+          recipientId: ME,
+          type: RelationshipType.Friends,
+        });
+        relationshipRepository.findOneBy.mockResolvedValue(existing);
+
+        const result = await service.update(ME, existing.id, {
+          type: RelationshipType.Friends,
+        });
+
+        expect(result.status).toBe(HttpStatus.BAD_REQUEST);
+        expect(relationshipRepository.findOneBy).toHaveBeenCalledWith({
+          id: existing.id,
+        });
+        expect(manager.save).not.toHaveBeenCalled();
+      });
+
+      it('returns 403 when accepting a request but the user is not the recipient', async () => {
+        const existing = buildRelationship({
+          senderId: ME,
+          recipientId: ALICE,
+          type: RelationshipType.Pending,
+        });
+        relationshipRepository.findOneBy.mockResolvedValue(existing);
+
+        const result = await service.update(ME, existing.id, {
+          type: RelationshipType.Friends,
+        });
+
+        expect(result.status).toBe(HttpStatus.FORBIDDEN);
+        expect(relationshipRepository.findOneBy).toHaveBeenCalledWith({
+          id: existing.id,
+        });
+        expect(manager.save).not.toHaveBeenCalled();
+      });
+
+      it('returns 500 when unable to retrieve user profile', async () => {
+        const existing = buildRelationship({
+          senderId: ALICE,
+          recipientId: ME,
+          type: RelationshipType.Pending,
+        });
+        relationshipRepository.findOneBy.mockResolvedValue(existing);
+        userProfilesService.getById.mockResolvedValue(
+          buildResult({
+            status: HttpStatus.INTERNAL_SERVER_ERROR,
+            message: 'User service down',
+          }),
+        );
+
+        const result = await service.update(ME, existing.id, {
+          type: RelationshipType.Friends,
+        });
+
+        expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(relationshipRepository.findOneBy).toHaveBeenCalledWith({
+          id: existing.id,
+        });
+        expect(manager.save).not.toHaveBeenCalled();
+        expect(userProfilesService.getById).toHaveBeenCalledWith(ME);
+      });
+
+      it('returns 500 when transaction failed', async () => {
+        const existing = buildRelationship({
+          senderId: ALICE,
+          recipientId: ME,
+          type: RelationshipType.Pending,
+        });
+        relationshipRepository.findOneBy.mockResolvedValue(existing);
+        userProfilesService.getById.mockResolvedValue(
+          buildResult({ data: buildProfile(ME) }),
+        );
+        manager.save.mockRejectedValue(new Error('Database down'));
+
+        const result = await service.update(ME, existing.id, {
+          type: RelationshipType.Friends,
+        });
+
+        expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+      });
+
+      it('updates relationship and push event', async () => {
+        const existing = buildRelationship({
+          id: 'rel-123',
+          senderId: ALICE,
+          recipientId: ME,
+          type: RelationshipType.Pending,
+        });
+        relationshipRepository.findOneBy.mockResolvedValue(existing);
+        userProfilesService.getById.mockResolvedValue(
+          buildResult({ data: buildProfile(ME) }),
+        );
+
+        const result = await service.update(ME, existing.id, {
+          type: RelationshipType.Friends,
+        });
+
+        expect(result.status).toBe(HttpStatus.NO_CONTENT);
+        expect(manager.save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: existing.id,
+            type: RelationshipType.Friends,
+          }),
+        );
+        expect(outboxService.pushEvent).toHaveBeenCalledWith(
+          {
+            event: OutboxEvent.FriendRequestAccepted,
+            data: {
+              recipients: [ALICE],
+              data: expect.objectContaining({
+                id: 'rel-123',
+                user: expect.objectContaining({
+                  id: ME,
+                } as UserProfileResponseDTO),
+              }),
+            } as Payload<RelationshipResponseDTO>,
+          } as Pick<Outbox, 'data' | 'event'>,
+          manager,
+        );
+      });
+    });
+  });
+
+  describe('remove', () => {
+    it('returns 401 when user id is empty without querying', async () => {
+      const result = await service.remove('', 'rel-123');
+
+      expect(result.status).toBe(HttpStatus.UNAUTHORIZED);
+      expect(relationshipRepository.findOneBy).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when relationship id is empty without querying', async () => {
+      const result = await service.remove(ME, '');
+
+      expect(result.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(relationshipRepository.findOneBy).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 when removing relationship that the user is not in', async () => {
+      const existing = buildRelationship({ id: 'rel-123', senderId: BOB, recipientId: ALICE, type: RelationshipType.Friends });
+      relationshipRepository.findOneBy.mockResolvedValue(existing);
+
+      const result = await service.remove(ME, existing.id);
+
+      expect(result.status).toBe(HttpStatus.FORBIDDEN);
+      expect(relationshipRepository.findOneBy).toHaveBeenCalledWith({ id: 'rel-123' });
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 when removing relationship where the user is blocked', async () => {
+      const existing = buildRelationship({ id: 'rel-123', senderId: BOB, recipientId: ME, type: RelationshipType.Blocked });
+      relationshipRepository.findOneBy.mockResolvedValue(existing);
+      
+      const result = await service.remove(ME, existing.id);
+
+      expect(result.status).toBe(HttpStatus.FORBIDDEN);
+      expect(relationshipRepository.findOneBy).toHaveBeenCalledWith({ id: 'rel-123' });
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('returns 500 when repository throws error', async () => {
+
+    })
   })
 });

@@ -488,7 +488,7 @@ export class RelationshipsService {
         'failed to find relationship for deletion',
       );
       return {
-        status: HttpStatus.BAD_REQUEST,
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'An error occurred when deleting relationship',
         data: null,
       };
