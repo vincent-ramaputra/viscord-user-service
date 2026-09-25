@@ -93,20 +93,12 @@ describe('RelationshipsService', () => {
     // The service builds its RabbitMQ client in the constructor instead of
     // injecting it, so stub the factory to keep this unit test off the network.
     gatewayMQ = { emit: jest.fn() };
-    jest.spyOn(ClientProxyFactory, 'create').mockReturnValue({
-      ...gatewayMQ,
-      connect: jest.fn(),
-      close: jest.fn(),
-    } as never);
-
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
-
     relationshipRepository = {
       find: jest.fn(),
       findOne: jest.fn(),
       findOneBy: jest.fn(),
     };
-
     userProfilesService = {
       getUserProfiles: jest.fn(),
       getProfileByUsername: jest.fn(),
@@ -127,6 +119,7 @@ describe('RelationshipsService', () => {
         },
         { provide: UserProfilesService, useValue: userProfilesService },
         { provide: DataSource, useValue: dataSource },
+        { provide: 'GATEWAY_MQ', useValue: gatewayMQ }
       ],
     }).compile();
 

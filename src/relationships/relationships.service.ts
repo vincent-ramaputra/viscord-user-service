@@ -35,7 +35,6 @@ import { UserProfileResponseDTO } from 'src/user-profiles/dto/user-profile-respo
 @Injectable()
 export class RelationshipsService {
   private readonly logger = new Logger(RelationshipsService.name);
-  private gatewayMQ: ClientProxy;
 
   constructor(
     @Inject(forwardRef(() => UserProfilesService))
@@ -43,15 +42,8 @@ export class RelationshipsService {
     @InjectRepository(Relationship)
     private readonly relationshipRepository: Repository<Relationship>,
     private readonly dataSource: DataSource,
+    @Inject('GATEWAY_MQ') private readonly gatewayMQ: ClientProxy
   ) {
-    this.gatewayMQ = ClientProxyFactory.create({
-      transport: Transport.RMQ,
-      options: {
-        urls: [`amqp://${process.env.RMQ_HOST}:${process.env.RMQ_PORT}`],
-        queue: GATEWAY_QUEUE,
-        queueOptions: { durable: true },
-      },
-    });
   }
   async create(
     userId: string,
