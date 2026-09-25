@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Outbox } from './entities/outbox.entity';
 import { OutboxEvent } from './enums/outbox-event.enum';
 import { FRIEND_REQUEST_SENT_EVENT } from 'src/constants/events';
+import { of } from 'rxjs';
 
 function buildMessage(overrides: Partial<Outbox> = {}): Outbox {
   return {
@@ -49,7 +50,7 @@ describe('OutboxService', () => {
   });
 
   beforeEach(() => {
-    jest.restoreAllMocks();
+    jest.resetAllMocks();
   });
 
   it('should be defined', () => {
@@ -75,8 +76,8 @@ describe('OutboxService', () => {
 
     it('should emit event with the correct pattern', async () => {
       const message = buildMessage();
-
       outboxRepository.findOne.mockResolvedValue(message);
+      gatewayMQ.emit.mockImplementation(() => of(undefined));
 
       await service.pollOutbox();
 
