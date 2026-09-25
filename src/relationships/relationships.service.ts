@@ -14,18 +14,13 @@ import { UserProfilesService } from 'src/user-profiles/user-profiles.service';
 import { Result } from 'src/interfaces/result.interface';
 import { RelationshipType } from './enums/relationship-type.enum';
 import { RelationshipResponseDTO } from './dto/relationship-response.dto';
-import {
-  ClientProxy,
-  ClientProxyFactory,
-  Transport,
-} from '@nestjs/microservices';
+import { ClientProxy } from '@nestjs/microservices';
 import { toRelationshipResponseDTO } from 'src/mappings/relationship.mapper';
 import { Payload } from 'src/interfaces/payload.dto';
 import {
   FRIEND_ADDED_EVENT,
   FRIEND_REMOVED_EVENT,
   FRIEND_REQUEST_SENT_EVENT,
-  GATEWAY_QUEUE,
   USER_PRESENCE_UPDATE_EVENT,
 } from 'src/constants/events';
 import { UserStatus } from 'src/user-profiles/enums/user-status.enum';
@@ -42,9 +37,8 @@ export class RelationshipsService {
     @InjectRepository(Relationship)
     private readonly relationshipRepository: Repository<Relationship>,
     private readonly dataSource: DataSource,
-    @Inject('GATEWAY_MQ') private readonly gatewayMQ: ClientProxy
-  ) {
-  }
+    @Inject('GATEWAY_MQ') private readonly gatewayMQ: ClientProxy,
+  ) {}
   async create(
     userId: string,
     dto: CreateRelationshipDto,

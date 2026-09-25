@@ -56,12 +56,14 @@ export class OutboxService {
       return;
     }
 
-
     try {
       await lastValueFrom(route.client.emit(route.pattern, message.data));
       await this.outboxRepository.save({ ...message, publishedAt: new Date() });
     } catch (error) {
-      this.logger.error({ err: error}, 'Failed updating message published time');
+      this.logger.error(
+        { err: error },
+        'Failed updating message published time',
+      );
     }
   }
 

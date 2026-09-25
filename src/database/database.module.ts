@@ -21,7 +21,7 @@ const logger = new Logger('DatabaseModule');
           migrations: [__dirname + '/migrations/*{.ts,.js}'],
           migrationsRun: true,
           synchronize: false,
-          connectTimeoutMS: 10000
+          connectTimeoutMS: 10000,
         };
       },
     }),

@@ -1,5 +1,4 @@
 import { HttpStatus, Logger } from '@nestjs/common';
-import { ClientProxyFactory } from '@nestjs/microservices';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Relationship } from './entities/relationship.entity';
@@ -119,7 +118,7 @@ describe('RelationshipsService', () => {
         },
         { provide: UserProfilesService, useValue: userProfilesService },
         { provide: DataSource, useValue: dataSource },
-        { provide: 'GATEWAY_MQ', useValue: gatewayMQ }
+        { provide: 'GATEWAY_MQ', useValue: gatewayMQ },
       ],
     }).compile();
 

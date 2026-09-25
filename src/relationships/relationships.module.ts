@@ -30,7 +30,7 @@ import { GATEWAY_QUEUE } from 'src/constants/events';
                 ],
                 queue: GATEWAY_QUEUE,
                 queueOptions: { durable: true },
-                persistent: true
+                persistent: true,
               },
             };
           },
@@ -40,4 +40,4 @@ import { GATEWAY_QUEUE } from 'src/constants/events';
   ],
   exports: [RelationshipsService],
 })
-export class RelationshipsModule { }
+export class RelationshipsModule {}
