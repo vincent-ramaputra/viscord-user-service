@@ -26,6 +26,7 @@ import { ScheduleModule } from '@nestjs/schedule';
                 ],
                 queue: GATEWAY_QUEUE,
                 queueOptions: { durable: true },
+                persistent: true
               },
             };
           },

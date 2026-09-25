@@ -10,6 +10,7 @@ import {
   FRIEND_REMOVED_EVENT,
   FRIEND_REQUEST_SENT_EVENT,
 } from 'src/constants/events';
+import { lastValueFrom } from 'rxjs';
 
 interface Route {
   client: ClientProxy;
@@ -55,12 +56,12 @@ export class OutboxService {
       return;
     }
 
-    route.client.emit(route.pattern, message.data);
 
     try {
+      await lastValueFrom(route.client.emit(route.pattern, message.data));
       await this.outboxRepository.save({ ...message, publishedAt: new Date() });
     } catch (error) {
-      this.logger.error('Failed updating message published time', error);
+      this.logger.error({ err: error}, 'Failed updating message published time');
     }
   }
 
