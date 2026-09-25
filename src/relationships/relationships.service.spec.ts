@@ -8,12 +8,14 @@ import { RelationshipsService } from './relationships.service';
 import { UserProfileResponseDTO } from 'src/user-profiles/dto/user-profile-response.dto';
 import { UserStatus } from 'src/user-profiles/enums/user-status.enum';
 import { UserProfilesService } from 'src/user-profiles/user-profiles.service';
-import { OutboxService } from 'src/outbox/outbox.service';
 import { DataSource } from 'typeorm';
 import { Result } from 'src/interfaces/result.interface';
 import { CreateRelationshipDto } from './dto/create-relationship.dto';
-import { Outbox } from 'src/outbox/entities/outbox.entity';
-import { OutboxEvent } from 'src/outbox/enums/outbox-event.enum';
+import {
+  FRIEND_ADDED_EVENT,
+  FRIEND_REMOVED_EVENT,
+  FRIEND_REQUEST_SENT_EVENT,
+} from 'src/constants/events';
 import { RelationshipResponseDTO } from './dto/relationship-response.dto';
 import { Payload } from 'src/interfaces/payload.dto';
 import { UpdateRelationshipDto } from './dto/update-relationship.dto';
@@ -83,15 +85,16 @@ describe('RelationshipsService', () => {
     getProfileByUsername: jest.Mock;
     getById: jest.Mock;
   };
-  let outboxService: { pushEvent: jest.Mock };
+  let gatewayMQ: { emit: jest.Mock };
   let dataSource: { transaction: jest.Mock };
   let manager: { save: jest.Mock; delete: jest.Mock };
 
   beforeEach(async () => {
     // The service builds its RabbitMQ client in the constructor instead of
     // injecting it, so stub the factory to keep this unit test off the network.
+    gatewayMQ = { emit: jest.fn() };
     jest.spyOn(ClientProxyFactory, 'create').mockReturnValue({
-      emit: jest.fn(),
+      ...gatewayMQ,
       connect: jest.fn(),
       close: jest.fn(),
     } as never);
@@ -109,7 +112,6 @@ describe('RelationshipsService', () => {
       getProfileByUsername: jest.fn(),
       getById: jest.fn(),
     };
-    outboxService = { pushEvent: jest.fn() };
     manager = {
       save: jest.fn(),
       delete: jest.fn(),
@@ -124,7 +126,6 @@ describe('RelationshipsService', () => {
           useValue: relationshipRepository,
         },
         { provide: UserProfilesService, useValue: userProfilesService },
-        { provide: OutboxService, useValue: outboxService },
         { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
@@ -377,7 +378,7 @@ describe('RelationshipsService', () => {
         expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
         expect(userProfilesService.getById).toHaveBeenCalledWith(ME);
         expect(dataSource.transaction).not.toHaveBeenCalled();
-        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(gatewayMQ.emit).not.toHaveBeenCalled();
       });
 
       it('returns 500 and not push event when save failed', async () => {
@@ -391,23 +392,25 @@ describe('RelationshipsService', () => {
         expect(manager.save).toHaveBeenCalled();
         expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
         expect(result.data).toBeNull();
-        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(gatewayMQ.emit).not.toHaveBeenCalled();
       });
 
-      it('returns 500 when transaction failed', async () => {
-        outboxService.pushEvent.mockRejectedValue(new Error('outbox down'));
+      it('still returns 200 when emitting the event throws', async () => {
+        gatewayMQ.emit.mockImplementation(() => {
+          throw new Error('rabbitmq down');
+        });
 
         const result = await service.create(
           ME,
           buildRelationshipRequest('alice'),
         );
 
-        expect(outboxService.pushEvent).toHaveBeenCalled();
-        expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
-        expect(result.data).toBeNull();
+        expect(manager.save).toHaveBeenCalled();
+        expect(gatewayMQ.emit).toHaveBeenCalled();
+        expect(result.status).toBe(HttpStatus.OK);
       });
 
-      it('saves a pending request and push a new message in the same transaction', async () => {
+      it('saves a pending request and emits a friend request event', async () => {
         const result = await service.create(
           ME,
           buildRelationshipRequest('alice'),
@@ -420,21 +423,18 @@ describe('RelationshipsService', () => {
             type: RelationshipType.Pending,
           } as Relationship),
         );
-        expect(outboxService.pushEvent).toHaveBeenCalledWith(
-          {
-            event: OutboxEvent.FriendRequestSent,
+        expect(gatewayMQ.emit).toHaveBeenCalledWith(
+          FRIEND_REQUEST_SENT_EVENT,
+          expect.objectContaining({
+            recipients: [ALICE],
             data: expect.objectContaining({
-              recipients: [ALICE],
-              data: expect.objectContaining({
-                id: 'rel-new',
-                type: RelationshipType.PendingReceived,
-                user: expect.objectContaining({
-                  id: ME,
-                } as UserProfileResponseDTO),
-              }),
-            } as Payload<RelationshipResponseDTO>),
-          } as Pick<Outbox, 'data' | 'event'>,
-          manager,
+              id: 'rel-new',
+              type: RelationshipType.PendingReceived,
+              user: expect.objectContaining({
+                id: ME,
+              } as UserProfileResponseDTO),
+            }),
+          } as Payload<RelationshipResponseDTO>),
         );
 
         expect(result.status).toBe(HttpStatus.OK);
@@ -467,7 +467,7 @@ describe('RelationshipsService', () => {
 
         expect(result.status).toBe(HttpStatus.BAD_REQUEST);
         expect(manager.save).not.toHaveBeenCalled();
-        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(gatewayMQ.emit).not.toHaveBeenCalled();
       });
 
       it('returns 200 and does nothing when existing relationship sender is the user', async () => {
@@ -486,7 +486,7 @@ describe('RelationshipsService', () => {
 
         expect(result.status).toBe(HttpStatus.OK);
         expect(manager.save).not.toHaveBeenCalled();
-        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(gatewayMQ.emit).not.toHaveBeenCalled();
       });
 
       it("returns 500 when the accepter's profile can't be loaded", async () => {
@@ -509,7 +509,7 @@ describe('RelationshipsService', () => {
 
         expect(userProfilesService.getById).toHaveBeenCalledWith(ME);
         expect(manager.save).not.toHaveBeenCalled();
-        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(gatewayMQ.emit).not.toHaveBeenCalled();
         expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
       });
 
@@ -533,21 +533,15 @@ describe('RelationshipsService', () => {
         expect(manager.save).toHaveBeenCalledTimes(1);
         expect(manager.save.mock.calls[0][0]).toBe(existing);
         expect(existing.type).toBe(RelationshipType.Friends);
-        expect(outboxService.pushEvent).toHaveBeenCalledWith(
-          expect.objectContaining({
-            event: OutboxEvent.FriendRequestAccepted,
-            data: {
-              recipients: [ALICE],
-              data: expect.objectContaining({
-                id: 'rel-123',
-                user: expect.objectContaining({
-                  id: ME,
-                }) as UserProfileResponseDTO,
-              } as RelationshipResponseDTO),
-            } as Payload<RelationshipResponseDTO>,
-          } as Pick<Outbox, 'data' | 'event'>),
-          manager,
-        );
+        expect(gatewayMQ.emit).toHaveBeenCalledWith(FRIEND_ADDED_EVENT, {
+          recipients: [ALICE],
+          data: expect.objectContaining({
+            id: 'rel-123',
+            user: expect.objectContaining({
+              id: ME,
+            }) as UserProfileResponseDTO,
+          } as RelationshipResponseDTO),
+        } as Payload<RelationshipResponseDTO>);
         expect(result.status).toBe(HttpStatus.OK);
       });
 
@@ -565,7 +559,7 @@ describe('RelationshipsService', () => {
         );
 
         expect(result.status).toBe(HttpStatus.CONFLICT);
-        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(gatewayMQ.emit).not.toHaveBeenCalled();
         expect(manager.save).not.toHaveBeenCalled();
       });
 
@@ -588,7 +582,7 @@ describe('RelationshipsService', () => {
             "Hm, didn't work. Double check that the username is correct.",
           data: null,
         });
-        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(gatewayMQ.emit).not.toHaveBeenCalled();
         expect(manager.save).not.toHaveBeenCalled();
       });
     });
@@ -753,10 +747,10 @@ describe('RelationshipsService', () => {
         });
 
         expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
-        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(gatewayMQ.emit).not.toHaveBeenCalled();
       });
 
-      it('updates relationship and push event', async () => {
+      it('updates relationship and emits a friend added event', async () => {
         const existing = buildRelationship({
           id: 'rel-123',
           senderId: ALICE,
@@ -779,21 +773,15 @@ describe('RelationshipsService', () => {
             type: RelationshipType.Friends,
           }),
         );
-        expect(outboxService.pushEvent).toHaveBeenCalledWith(
-          {
-            event: OutboxEvent.FriendRequestAccepted,
-            data: {
-              recipients: [ALICE],
-              data: expect.objectContaining({
-                id: 'rel-123',
-                user: expect.objectContaining({
-                  id: ME,
-                } as UserProfileResponseDTO),
-              }),
-            } as Payload<RelationshipResponseDTO>,
-          } as Pick<Outbox, 'data' | 'event'>,
-          manager,
-        );
+        expect(gatewayMQ.emit).toHaveBeenCalledWith(FRIEND_ADDED_EVENT, {
+          recipients: [ALICE],
+          data: expect.objectContaining({
+            id: 'rel-123',
+            user: expect.objectContaining({
+              id: ME,
+            } as UserProfileResponseDTO),
+          }),
+        } as Payload<RelationshipResponseDTO>);
       });
     });
   });
@@ -924,10 +912,10 @@ describe('RelationshipsService', () => {
 
         expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
         expect(manager.delete).toHaveBeenCalled();
-        expect(outboxService.pushEvent).not.toHaveBeenCalled();
+        expect(gatewayMQ.emit).not.toHaveBeenCalled();
       });
 
-      it('returns 500 when push event failed', async () => {
+      it('still returns 204 when emitting the event throws', async () => {
         const existing = buildRelationship({
           id: 'rel-123',
           senderId: ME,
@@ -938,13 +926,15 @@ describe('RelationshipsService', () => {
         userProfilesService.getById.mockResolvedValue(
           buildResult({ data: buildProfile(ME) }),
         );
-        outboxService.pushEvent.mockRejectedValue(new Error('Database down'));
+        gatewayMQ.emit.mockImplementation(() => {
+          throw new Error('rabbitmq down');
+        });
 
         const result = await service.remove(ME, existing.id);
 
-        expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(result.status).toBe(HttpStatus.NO_CONTENT);
         expect(manager.delete).toHaveBeenCalled();
-        expect(outboxService.pushEvent).toHaveBeenCalled();
+        expect(gatewayMQ.emit).toHaveBeenCalled();
       });
 
       it.each([
@@ -1001,21 +991,15 @@ describe('RelationshipsService', () => {
             Relationship,
             expect.objectContaining({ id: 'rel-123' }),
           );
-          expect(outboxService.pushEvent).toHaveBeenCalledWith(
-            expect.objectContaining({
-              event: OutboxEvent.FriendRemoved,
-              data: {
-                recipients: [notified],
-                data: expect.objectContaining({
-                  id: 'rel-123',
-                  user: expect.objectContaining({
-                    id: ME,
-                  } as UserProfileResponseDTO),
-                } as RelationshipResponseDTO),
-              } as Payload<RelationshipResponseDTO>,
-            } as Pick<Outbox, 'data' | 'event'>),
-            manager,
-          );
+          expect(gatewayMQ.emit).toHaveBeenCalledWith(FRIEND_REMOVED_EVENT, {
+            recipients: [notified],
+            data: expect.objectContaining({
+              id: 'rel-123',
+              user: expect.objectContaining({
+                id: ME,
+              } as UserProfileResponseDTO),
+            } as RelationshipResponseDTO),
+          } as Payload<RelationshipResponseDTO>);
         },
       );
     });

@@ -22,14 +22,15 @@ import {
 import { toRelationshipResponseDTO } from 'src/mappings/relationship.mapper';
 import { Payload } from 'src/interfaces/payload.dto';
 import {
+  FRIEND_ADDED_EVENT,
+  FRIEND_REMOVED_EVENT,
+  FRIEND_REQUEST_SENT_EVENT,
   GATEWAY_QUEUE,
   USER_PRESENCE_UPDATE_EVENT,
 } from 'src/constants/events';
 import { UserStatus } from 'src/user-profiles/enums/user-status.enum';
 import { UserPresenceUpdateDTO } from 'src/presence/dto/user-presence-update.dto';
 import { UserProfileResponseDTO } from 'src/user-profiles/dto/user-profile-response.dto';
-import { OutboxService } from 'src/outbox/outbox.service';
-import { OutboxEvent } from 'src/outbox/enums/outbox-event.enum';
 
 @Injectable()
 export class RelationshipsService {
@@ -39,7 +40,6 @@ export class RelationshipsService {
   constructor(
     @Inject(forwardRef(() => UserProfilesService))
     private readonly userProfilesService: UserProfilesService,
-    private readonly outboxService: OutboxService,
     @InjectRepository(Relationship)
     private readonly relationshipRepository: Repository<Relationship>,
     private readonly dataSource: DataSource,
@@ -116,22 +116,6 @@ export class RelationshipsService {
       try {
         await this.dataSource.transaction(async (manager) => {
           await manager.save(relationship);
-
-          const payload: RelationshipResponseDTO =
-            toRelationshipResponseDTO(relationship);
-          payload.user = senderProfileResponse.data;
-          payload.type = RelationshipType.PendingReceived;
-
-          await this.outboxService.pushEvent(
-            {
-              event: OutboxEvent.FriendRequestSent,
-              data: {
-                recipients: [relationship.recipientId],
-                data: payload,
-              } as Payload<RelationshipResponseDTO>,
-            },
-            manager,
-          );
         });
       } catch (error) {
         this.logger.error(
@@ -143,6 +127,24 @@ export class RelationshipsService {
           message: 'An unknown error occurred',
           data: null,
         };
+      }
+
+      // Emitted after commit on purpose: gateway delivery is best-effort (the
+      // client refetches relationships), so a lost event is only a stale UI.
+      try {
+        const payload: RelationshipResponseDTO =
+          toRelationshipResponseDTO(relationship);
+        payload.user = senderProfileResponse.data;
+        payload.type = RelationshipType.PendingReceived;
+        this.gatewayMQ.emit(FRIEND_REQUEST_SENT_EVENT, {
+          recipients: [relationship.recipientId],
+          data: payload,
+        } as Payload<RelationshipResponseDTO>);
+      } catch (error) {
+        this.logger.error(
+          { err: error.message },
+          'failed to emit friend request event',
+        );
       }
 
       const responseDTO: RelationshipResponseDTO =
@@ -402,20 +404,6 @@ export class RelationshipsService {
       await this.dataSource.transaction(async (manager) => {
         relationship.type = RelationshipType.Friends;
         await manager.save(relationship);
-
-        const payload = toRelationshipResponseDTO(relationship);
-        payload.user = recipientResponse.data;
-
-        await this.outboxService.pushEvent(
-          {
-            event: OutboxEvent.FriendRequestAccepted,
-            data: {
-              recipients: [relationship.senderId],
-              data: payload,
-            } as Payload<RelationshipResponseDTO>,
-          },
-          manager,
-        );
       });
     } catch (error) {
       this.logger.error(
@@ -428,6 +416,20 @@ export class RelationshipsService {
         message: 'Failed to accept friend request',
         data: null,
       };
+    }
+
+    try {
+      const payload = toRelationshipResponseDTO(relationship);
+      payload.user = recipientResponse.data;
+      this.gatewayMQ.emit(FRIEND_ADDED_EVENT, {
+        recipients: [relationship.senderId],
+        data: payload,
+      } as Payload<RelationshipResponseDTO>);
+    } catch (error) {
+      this.logger.error(
+        { err: error.message },
+        'failed to emit friend added event',
+      );
     }
 
     return {
@@ -508,23 +510,6 @@ export class RelationshipsService {
     try {
       await this.dataSource.transaction(async (manager) => {
         await manager.delete(Relationship, { id: relationship.id });
-
-        const payload = toRelationshipResponseDTO(relationship);
-        payload.user = senderResponse.data;
-        await this.outboxService.pushEvent(
-          {
-            event: OutboxEvent.FriendRemoved,
-            data: {
-              recipients: [
-                relationship.senderId !== userId
-                  ? relationship.senderId
-                  : relationship.recipientId,
-              ],
-              data: payload,
-            },
-          },
-          manager,
-        );
       });
     } catch (error) {
       this.logger.error(
@@ -536,6 +521,24 @@ export class RelationshipsService {
         message: 'An error occurred when deleting relationship',
         data: null,
       };
+    }
+
+    try {
+      const payload = toRelationshipResponseDTO(relationship);
+      payload.user = senderResponse.data;
+      this.gatewayMQ.emit(FRIEND_REMOVED_EVENT, {
+        recipients: [
+          relationship.senderId !== userId
+            ? relationship.senderId
+            : relationship.recipientId,
+        ],
+        data: payload,
+      } as Payload<RelationshipResponseDTO>);
+    } catch (error) {
+      this.logger.error(
+        { err: error.message },
+        'failed to emit friend removed event',
+      );
     }
 
     return {
