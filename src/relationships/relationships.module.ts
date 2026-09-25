@@ -5,7 +5,9 @@ import { UsersModule } from 'src/users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Relationship } from './entities/relationship.entity';
 import { UserProfilesModule } from 'src/user-profiles/user-profiles.module';
-import { OutboxModule } from 'src/outbox/outbox.module';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { ConfigService } from '@nestjs/config';
+import { GATEWAY_QUEUE } from 'src/constants/events';
 
 @Module({
   controllers: [RelationshipsController],
@@ -14,7 +16,27 @@ import { OutboxModule } from 'src/outbox/outbox.module';
     UsersModule,
     forwardRef(() => UserProfilesModule),
     TypeOrmModule.forFeature([Relationship]),
-    OutboxModule,
+    ClientsModule.registerAsync({
+      clients: [
+        {
+          name: 'GATEWAY_MQ',
+          inject: [ConfigService],
+          useFactory: (configService: ConfigService) => {
+            return {
+              transport: Transport.RMQ,
+              options: {
+                urls: [
+                  `amqp://${configService.get('RMQ_HOST')}:${configService.get('RMQ_PORT')}`,
+                ],
+                queue: GATEWAY_QUEUE,
+                queueOptions: { durable: true },
+                persistent: true,
+              },
+            };
+          },
+        },
+      ],
+    }),
   ],
   exports: [RelationshipsService],
 })

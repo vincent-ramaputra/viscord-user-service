@@ -9,7 +9,6 @@ import { StorageModule } from './storage/storage.module';
 import { RedisModule } from './redis/redis.module';
 import { IncomingMessage, ServerResponse } from 'http';
 import { LoggerModule } from 'nestjs-pino';
-import { OutboxModule } from './outbox/outbox.module';
 
 @Module({
   imports: [
@@ -51,7 +50,6 @@ import { OutboxModule } from './outbox/outbox.module';
     RelationshipsModule,
     StorageModule,
     RedisModule,
-    OutboxModule,
   ],
   providers: [StorageService],
 })
