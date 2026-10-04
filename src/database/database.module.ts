@@ -1,11 +1,14 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { getDbSslConfig } from './ssl.config';
+
+const logger = new Logger('DatabaseModule');
 
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
       useFactory: () => {
-        console.log(`connecting to ${process.env.DB_HOST}`);
+        logger.log(`connecting to ${process.env.DB_HOST}`);
         return {
           type: 'postgres',
           host: process.env.DB_HOST,
@@ -13,12 +16,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
           username: process.env.DB_USER,
           password: process.env.DB_PASSWORD,
           database: process.env.DB_NAME,
-          ssl:
-            process.env.NODE_ENV === 'development'
-              ? { rejectUnauthorized: false }
-              : undefined,
+          ssl: getDbSslConfig(),
           entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-          synchronize: true,
+          migrations: [__dirname + '/migrations/*{.ts,.js}'],
+          migrationsRun: true,
+          synchronize: false,
+          connectTimeoutMS: 10000,
         };
       },
     }),

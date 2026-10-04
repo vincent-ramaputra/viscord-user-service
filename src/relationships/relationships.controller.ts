@@ -14,7 +14,7 @@ import { RelationshipsService } from './relationships.service';
 import { CreateRelationshipDto } from './dto/create-relationship.dto';
 import { UpdateRelationshipDto } from './dto/update-relationship.dto';
 import { Response } from 'express';
-import { GrpcMethod, MessagePattern } from '@nestjs/microservices';
+import { EventPattern, GrpcMethod } from '@nestjs/microservices';
 import { USER_OFFLINE_EVENT, USER_ONLINE_EVENT } from 'src/constants/events';
 
 @Controller('relationships')
@@ -93,14 +93,14 @@ export class RelationshipsController {
     return res.status(status).json(result);
   }
 
-  @MessagePattern(USER_ONLINE_EVENT)
+  @EventPattern(USER_ONLINE_EVENT)
   async handleUserOnline(@Body() userId: string) {
-    this.relationshipsService.onUserOnline(userId);
+    await this.relationshipsService.onUserOnline(userId);
   }
 
-  @MessagePattern(USER_OFFLINE_EVENT)
+  @EventPattern(USER_OFFLINE_EVENT)
   async handleUserOffline(@Body() userId: string) {
-    this.relationshipsService.onUserOffline(userId);
+    await this.relationshipsService.onUserOffline(userId);
   }
 
   @GrpcMethod('RelationshipsService', 'GetVisibleUsers')

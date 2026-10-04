@@ -4,15 +4,19 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
   ValidationPipe,
 } from '@nestjs/common';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
 import { UserProfile } from './entities/user-profile.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, QueryFailedError, Repository } from 'typeorm';
 import { Result } from 'src/interfaces/result.interface';
-import { mapper } from 'src/mappings/mappers';
-import { createMap } from '@automapper/core';
+import {
+  toUserProfileEntity,
+  toUserProfileEntityFromResponse,
+  toUserProfileResponseDTO,
+} from 'src/mappings/user-profile.mapper';
 import { UserProfileResponseDTO } from './dto/user-profile-response.dto';
 import { UpdateStatusDTO } from 'src/users/dto/update-status.dto';
 import { StorageService } from 'src/storage/storage.service';
@@ -27,9 +31,11 @@ import { Payload } from 'src/interfaces/payload.dto';
 import { UserStatus } from './enums/user-status.enum';
 import { RelationshipsService } from 'src/relationships/relationships.service';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
+import { StoragePaths } from 'src/storage/storage.paths';
 
 @Injectable()
 export class UserProfilesService {
+  private readonly logger = new Logger(UserProfilesService.name);
   private gatewayMQ: ClientProxy;
   constructor(
     private readonly storageService: StorageService,
@@ -60,33 +66,44 @@ export class UserProfilesService {
       };
     }
 
-    dto.username = dto.username.toLowerCase();
-    const user = await this.userProfileRepository.findOneBy({
-      username: dto.username,
-    });
-    if (user) {
-      return {
-        status: HttpStatus.BAD_REQUEST,
-        message: 'This username is already used',
-        data: null,
-      };
-    }
-
-    const userProfile = mapper.map(dto, CreateUserProfileDto, UserProfile);
     const defaultAvatarURLs: string[] = await this.storageService.getFiles(
-      process.env.AWS_BUCKET,
-      process.env.IMAGE_ASSET_PATH,
+      StoragePaths.DEFAULT_AVATAR,
     );
     const randomIndex = Math.floor(Math.random() * defaultAvatarURLs.length);
 
+    const userProfile = toUserProfileEntity(dto);
     userProfile.defaultAvatarURL = defaultAvatarURLs[randomIndex];
+    userProfile.username = userProfile.username.toLowerCase();
 
-    await this.userProfileRepository.save(userProfile);
+    try {
+      await this.userProfileRepository.save(userProfile);
+    } catch (error) {
+      if (
+        error instanceof QueryFailedError &&
+        (error as any).code === '23505'
+      ) {
+        return {
+          status: HttpStatus.BAD_REQUEST,
+          message: 'This username is already used',
+          data: null,
+        };
+      }
+      throw error;
+    }
+
+    const userProfileResponse = toUserProfileResponseDTO(userProfile);
+    userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
+      `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
+    );
+    if (userProfileResponse.avatarURL)
+      userProfileResponse.avatarURL = this.storageService.toPublicURL(
+        `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+      );
 
     return {
       status: HttpStatus.CREATED,
       message: 'User profile created successfully',
-      data: mapper.map(userProfile, UserProfile, UserProfileResponseDTO),
+      data: userProfileResponse,
     };
   }
 
@@ -111,13 +128,26 @@ export class UserProfilesService {
         };
       }
 
+      const userProfileResponse = toUserProfileResponseDTO(userProfile);
+      userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
+        `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
+      );
+      if (userProfileResponse.avatarURL) {
+        userProfileResponse.avatarURL = this.storageService.toPublicURL(
+          `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+        );
+      }
+
       return {
         status: HttpStatus.OK,
-        data: mapper.map(userProfile, UserProfile, UserProfileResponseDTO),
+        data: userProfileResponse,
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
-      console.log(error);
+      this.logger.error(
+        { err: error.message },
+        'failed to retrieve user profile by id',
+      );
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -138,11 +168,7 @@ export class UserProfilesService {
         data: null,
       };
     }
-    const userProfile = mapper.map(
-      userResponse.data,
-      UserProfileResponseDTO,
-      UserProfile,
-    );
+    const userProfile = toUserProfileEntityFromResponse(userResponse.data);
 
     try {
       const previousStatus = userProfile.status;
@@ -156,7 +182,7 @@ export class UserProfilesService {
         this.relationshipsService.emitUserOnline(dto.userId);
       }
     } catch (error) {
-      console.log(error);
+      this.logger.error({ err: error.message }, 'failed to update user status');
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -164,11 +190,7 @@ export class UserProfilesService {
       };
     }
 
-    const profileDTO = mapper.map(
-      userProfile,
-      UserProfile,
-      UserProfileResponseDTO,
-    );
+    const profileDTO = toUserProfileResponseDTO(userProfile);
 
     const payload: Payload<UserProfileResponseDTO> = {
       recipients: [],
@@ -179,7 +201,10 @@ export class UserProfilesService {
     try {
       this.gatewayMQ.emit(USER_PROFILE_UPDATE_EVENT, payload);
     } catch (error) {
-      console.error(error);
+      this.logger.error(
+        { err: error.message },
+        'failed to emit user profile update event',
+      );
     }
 
     return {
@@ -234,13 +259,25 @@ export class UserProfilesService {
         };
       }
 
+      const userProfileResponse = toUserProfileResponseDTO(user);
+      userProfileResponse.defaultAvatarURL = this.storageService.toPublicURL(
+        `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
+      );
+      if (userProfileResponse.avatarURL)
+        userProfileResponse.avatarURL = this.storageService.toPublicURL(
+          `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+        );
+
       return {
         status: HttpStatus.OK,
-        data: mapper.map(user, UserProfile, UserProfileResponseDTO),
+        data: userProfileResponse,
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
-      console.log(error);
+      this.logger.error(
+        { err: error.message },
+        'failed to retrieve user profile by username',
+      );
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -257,13 +294,27 @@ export class UserProfilesService {
         await this.userProfileRepository.findBy({ id: In(userIds) });
       return {
         status: HttpStatus.OK,
-        data: userProfiles.map((user) =>
-          mapper.map(user, UserProfile, UserProfileResponseDTO),
-        ),
+        data: userProfiles.map((user) => {
+          const userProfileResponse = toUserProfileResponseDTO(user);
+
+          userProfileResponse.defaultAvatarURL =
+            this.storageService.toPublicURL(
+              `${StoragePaths.DEFAULT_AVATAR}/${userProfileResponse.defaultAvatarURL}`,
+            );
+          if (userProfileResponse.avatarURL)
+            userProfileResponse.avatarURL = this.storageService.toPublicURL(
+              `${StoragePaths.USER_AVATAR}/${userProfileResponse.avatarURL}`,
+            );
+
+          return userProfileResponse;
+        }),
         message: 'User profile retrieved successfully',
       };
     } catch (error) {
-      console.log(error);
+      this.logger.error(
+        { err: error.message },
+        'failed to retrieve user profiles',
+      );
       return {
         status: HttpStatus.BAD_REQUEST,
         data: null,
@@ -295,7 +346,7 @@ export class UserProfilesService {
     try {
       await this.userProfileRepository.save(profile);
     } catch (error) {
-      console.error(error);
+      this.logger.error({ err: error.message }, 'failed to save user profile');
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         data: null,
@@ -303,7 +354,7 @@ export class UserProfilesService {
       };
     }
 
-    const profileDTO = mapper.map(profile, UserProfile, UserProfileResponseDTO);
+    const profileDTO = toUserProfileResponseDTO(profile);
 
     try {
       this.gatewayMQ.emit(USER_PROFILE_UPDATE_EVENT, {
@@ -312,7 +363,10 @@ export class UserProfilesService {
         data: profileDTO,
       } as Payload<UserProfileResponseDTO>);
     } catch (error) {
-      console.error(error);
+      this.logger.error(
+        { err: error.message },
+        'failed to emit user profile update event',
+      );
     }
 
     return {
@@ -320,11 +374,5 @@ export class UserProfilesService {
       data: profileDTO,
       message: 'User profile updated successfully',
     };
-  }
-
-  onModuleInit() {
-    createMap(mapper, CreateUserProfileDto, UserProfile);
-    createMap(mapper, UserProfile, UserProfileResponseDTO);
-    createMap(mapper, UserProfileResponseDTO, UserProfile);
   }
 }

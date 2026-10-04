@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { createClient, RedisClientType } from 'redis';
 
 @Injectable()
 export class RedisService {
   private client: RedisClientType;
+  private readonly logger = new Logger(RedisService.name);
 
   async getClient(): Promise<RedisClientType> {
     if (!this.client) {
@@ -12,7 +13,7 @@ export class RedisService {
       });
 
       this.client.on('error', (err) =>
-        console.error('Redis Client Error', err),
+        this.logger.error({ err }, 'Redis client error'),
       );
       await this.client.connect();
     }

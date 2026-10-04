@@ -2,7 +2,7 @@ export const USER_QUEUE = 'user_queue';
 export const GATEWAY_QUEUE = 'gateway_queue';
 export const CHANNEL_QUEUE = 'channel_queue';
 
-export const FRIEND_REQUEST_RECEIVED_EVENT = 'friend_request_received';
+export const FRIEND_REQUEST_SENT_EVENT = 'friend_request_sent';
 export const FRIEND_REMOVED_EVENT = 'friend_removed';
 export const FRIEND_ADDED_EVENT = 'friend_added';
 
