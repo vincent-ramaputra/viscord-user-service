@@ -14,7 +14,6 @@ import { In, QueryFailedError, Repository } from 'typeorm';
 import { Result } from 'src/interfaces/result.interface';
 import {
   toUserProfileEntity,
-  toUserProfileEntityFromResponse,
   toUserProfileResponseDTO,
 } from 'src/mappings/user-profile.mapper';
 import { UserProfileResponseDTO } from './dto/user-profile-response.dto';
@@ -159,18 +158,27 @@ export class UserProfilesService {
   async updateStatus(
     @Body(new ValidationPipe({ transform: true })) dto: UpdateStatusDTO,
   ): Promise<Result<null>> {
-    const userResponse = await this.getById(dto.userId);
-
-    if (userResponse.status != HttpStatus.OK) {
+    if (!dto.userId || dto.userId.length == 0) {
       return {
         status: HttpStatus.BAD_REQUEST,
-        message: userResponse.message,
+        message: 'Invalid request',
         data: null,
       };
     }
-    const userProfile = toUserProfileEntityFromResponse(userResponse.data);
 
     try {
+      const userProfile = await this.userProfileRepository.findOneBy({
+        id: dto.userId,
+      });
+
+      if (!userProfile) {
+        return {
+          status: HttpStatus.BAD_REQUEST,
+          message: 'User not found',
+          data: null,
+        };
+      }
+
       const previousStatus = userProfile.status;
 
       userProfile.status = dto.status;
@@ -181,6 +189,31 @@ export class UserProfilesService {
       } else if (previousStatus === UserStatus.Invisible) {
         this.relationshipsService.emitUserOnline(dto.userId);
       }
+
+      const profileDTO = toUserProfileResponseDTO(userProfile);
+      profileDTO.defaultAvatarURL = this.storageService.toPublicURL(
+        `${StoragePaths.DEFAULT_AVATAR}/${profileDTO.defaultAvatarURL}`,
+      );
+      if (profileDTO.avatarURL) {
+        profileDTO.avatarURL = this.storageService.toPublicURL(
+          `${StoragePaths.USER_AVATAR}/${profileDTO.avatarURL}`,
+        );
+      }
+
+      const payload: Payload<UserProfileResponseDTO> = {
+        recipients: [],
+        targetIds: [profileDTO.id],
+        data: profileDTO,
+      };
+
+      try {
+        this.gatewayMQ.emit(USER_PROFILE_UPDATE_EVENT, payload);
+      } catch (error) {
+        this.logger.error(
+          { err: error.message },
+          'failed to emit user profile update event',
+        );
+      }
     } catch (error) {
       this.logger.error({ err: error.message }, 'failed to update user status');
       return {
@@ -188,23 +221,6 @@ export class UserProfilesService {
         data: null,
         message: 'An error occurred when updating user status',
       };
-    }
-
-    const profileDTO = toUserProfileResponseDTO(userProfile);
-
-    const payload: Payload<UserProfileResponseDTO> = {
-      recipients: [],
-      targetIds: [profileDTO.id],
-      data: profileDTO,
-    };
-
-    try {
-      this.gatewayMQ.emit(USER_PROFILE_UPDATE_EVENT, payload);
-    } catch (error) {
-      this.logger.error(
-        { err: error.message },
-        'failed to emit user profile update event',
-      );
     }
 
     return {
