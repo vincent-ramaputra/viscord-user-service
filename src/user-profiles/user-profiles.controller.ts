@@ -17,11 +17,14 @@ import { UpdateStatusDTO } from 'src/users/dto/update-status.dto';
 import { GrpcMethod } from '@nestjs/microservices';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { CurrentUserId } from 'src/common/decorators/current-user-id.decorator';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @Controller('user-profiles')
 export class UserProfilesController {
   constructor(private readonly userProfilesService: UserProfilesService) {}
 
+  // auth-service calls this in-cluster during registration, before the user has a session
+  @Public()
   @Post()
   async create(
     @Req() request: Request,
