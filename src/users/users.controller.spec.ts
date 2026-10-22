@@ -5,6 +5,8 @@ import { HttpStatus, INestApplication } from '@nestjs/common';
 import { UserResponseDTO } from './dto/user-response.dto';
 import { Result } from 'src/interfaces/result.interface';
 import * as request from 'supertest';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthGuard } from 'src/common/guards/auth/auth.guard';
 
 describe('UsersController', () => {
   let app: INestApplication;
@@ -16,7 +18,10 @@ describe('UsersController', () => {
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
-      providers: [{ provide: UsersService, useValue: userService }],
+      providers: [
+        { provide: UsersService, useValue: userService },
+        { provide: APP_GUARD, useClass: AuthGuard },
+      ],
     }).compile();
 
     controller = module.get<UsersController>(UsersController);
@@ -60,18 +65,12 @@ describe('UsersController', () => {
     expect(result.body).toEqual({ message: 'User not found', data: null });
   });
 
-  it('GET /users/current passes undefined to the service when X-User-Id is missing', async () => {
-    userService.getById.mockResolvedValueOnce({
-      status: HttpStatus.BAD_REQUEST,
-      data: null,
-      message: 'Invalid request',
-    } as Result<UserResponseDTO>);
-
+  it('GET /users/current returns 401 without calling the service when X-User-Id is missing', async () => {
     await request(app.getHttpServer())
       .get('/users/current')
-      .expect(HttpStatus.BAD_REQUEST);
+      .expect(HttpStatus.UNAUTHORIZED);
 
-    expect(userService.getById).toHaveBeenCalledWith(undefined);
+    expect(userService.getById).not.toHaveBeenCalled();
   });
 
   it('GetCurrentUser (gRPC) returns the full result including status', async () => {

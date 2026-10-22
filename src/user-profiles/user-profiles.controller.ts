@@ -8,7 +8,6 @@ import {
   ValidationPipe,
   Req,
   Res,
-  Headers,
 } from '@nestjs/common';
 import { UserProfilesService } from './user-profiles.service';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
@@ -17,6 +16,7 @@ import { Response } from 'express';
 import { UpdateStatusDTO } from 'src/users/dto/update-status.dto';
 import { GrpcMethod } from '@nestjs/microservices';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
+import { CurrentUserId } from 'src/common/decorators/current-user-id.decorator';
 
 @Controller('user-profiles')
 export class UserProfilesController {
@@ -37,7 +37,7 @@ export class UserProfilesController {
 
   @Patch('username')
   async updateUsername(
-    @Headers('X-User-Id') id: string,
+    @CurrentUserId() id: string,
     @Req() request: Request,
     @Body(new ValidationPipe({ transform: true })) dto: UpdateUsernameDTO,
     @Res() res: Response,
@@ -50,7 +50,7 @@ export class UserProfilesController {
 
   @Get('username/:username')
   async getByUsername(
-    @Headers('X-User-Id') id: string,
+    @CurrentUserId() id: string,
     @Res() res: Response,
     @Param('username') username: string,
   ) {
@@ -71,7 +71,7 @@ export class UserProfilesController {
 
   @Patch('status')
   async updateStatus(
-    @Headers('X-User-Id') id: string,
+    @CurrentUserId() id: string,
     @Res() res: Response,
     @Body(new ValidationPipe({ transform: true })) dto: UpdateStatusDTO,
   ) {
@@ -89,7 +89,7 @@ export class UserProfilesController {
 
   @Patch()
   async updateProfile(
-    @Headers('X-User-Id') id: string,
+    @CurrentUserId() id: string,
     @Res() res: Response,
     @Body(new ValidationPipe({ transform: true })) dto: UpdateUserProfileDto,
   ) {
