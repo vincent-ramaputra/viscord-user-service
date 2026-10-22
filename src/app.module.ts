@@ -9,6 +9,8 @@ import { StorageModule } from './storage/storage.module';
 import { RedisModule } from './redis/redis.module';
 import { IncomingMessage, ServerResponse } from 'http';
 import { LoggerModule } from 'nestjs-pino';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthGuard } from './common/guards/auth/auth.guard';
 
 @Module({
   imports: [
@@ -51,6 +53,12 @@ import { LoggerModule } from 'nestjs-pino';
     StorageModule,
     RedisModule,
   ],
-  providers: [StorageService],
+  providers: [
+    StorageService,
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+  ],
 })
 export class AppModule {}

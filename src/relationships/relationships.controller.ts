@@ -5,7 +5,6 @@ import {
   Body,
   Param,
   Delete,
-  Headers,
   Res,
   ValidationPipe,
   Put,
@@ -16,6 +15,7 @@ import { UpdateRelationshipDto } from './dto/update-relationship.dto';
 import { Response } from 'express';
 import { EventPattern, GrpcMethod } from '@nestjs/microservices';
 import { USER_OFFLINE_EVENT, USER_ONLINE_EVENT } from 'src/constants/events';
+import { CurrentUserId } from 'src/common/decorators/current-user-id.decorator';
 
 @Controller('relationships')
 export class RelationshipsController {
@@ -23,7 +23,7 @@ export class RelationshipsController {
 
   @Post()
   async create(
-    @Headers('X-User-Id') senderId: string,
+    @CurrentUserId() senderId: string,
     @Body(new ValidationPipe({ transform: true }))
     createDTO: CreateRelationshipDto,
     @Res() res: Response,
@@ -35,7 +35,7 @@ export class RelationshipsController {
   }
 
   @Get()
-  async findAll(@Headers('X-User-Id') userId: string, @Res() res: Response) {
+  async findAll(@CurrentUserId() userId: string, @Res() res: Response) {
     const result = await this.relationshipsService.findAll(userId);
     const { status } = result;
 
@@ -50,7 +50,7 @@ export class RelationshipsController {
 
   @Post('block/:userId')
   async blockUser(
-    @Headers('X-User-Id') userId: string,
+    @CurrentUserId() userId: string,
     @Param('userId') blockedUserId: string,
     @Res() res: Response,
   ) {
@@ -65,7 +65,7 @@ export class RelationshipsController {
 
   @Put(':id')
   async update(
-    @Headers('X-User-Id') userId: string,
+    @CurrentUserId() userId: string,
     @Param('id') id: string,
     @Body(new ValidationPipe({ transform: true }))
     updateRelationshipDto: UpdateRelationshipDto,
@@ -83,7 +83,7 @@ export class RelationshipsController {
 
   @Delete(':id')
   async remove(
-    @Headers('X-User-Id') userId: string,
+    @CurrentUserId() userId: string,
     @Param('id') id: string,
     @Res() res: Response,
   ) {
