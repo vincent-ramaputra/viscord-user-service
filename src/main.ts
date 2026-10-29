@@ -7,6 +7,7 @@ import { join } from 'path';
 import { Logger } from 'nestjs-pino';
 import pino from 'pino';
 import { LoggerService } from '@nestjs/common';
+import { createValidationPipe } from './common/pipes/validation.pipe';
 
 const _pino = pino({
   level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
@@ -30,6 +31,8 @@ async function bootstrap() {
     logger: bootstrapLogger,
   });
   app.useLogger(app.get(Logger));
+
+  app.useGlobalPipes(createValidationPipe());
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.GRPC,

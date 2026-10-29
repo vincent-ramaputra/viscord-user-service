@@ -5,13 +5,13 @@ import {
   Body,
   Patch,
   Param,
-  ValidationPipe,
   Req,
   Res,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { UserProfilesService } from './user-profiles.service';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
-import { UpdateUsernameDTO } from 'src/users/dto/update-username.dto';
+import { UpdateUsernameDTO } from 'src/user-profiles/dto/update-username.dto';
 import { Response } from 'express';
 import { UpdateStatusDTO } from 'src/users/dto/update-status.dto';
 import { GrpcMethod } from '@nestjs/microservices';
@@ -28,8 +28,7 @@ export class UserProfilesController {
   @Post()
   async create(
     @Req() request: Request,
-    @Body(new ValidationPipe({ transform: true }))
-    createUserProfileDto: CreateUserProfileDto,
+    @Body() createUserProfileDto: CreateUserProfileDto,
     @Res() res: Response,
   ) {
     const result = await this.userProfilesService.create(createUserProfileDto);
@@ -42,7 +41,7 @@ export class UserProfilesController {
   async updateUsername(
     @CurrentUserId() id: string,
     @Req() request: Request,
-    @Body(new ValidationPipe({ transform: true })) dto: UpdateUsernameDTO,
+    @Body() dto: UpdateUsernameDTO,
     @Res() res: Response,
   ) {
     const result = await this.userProfilesService.updateUsername(id, dto);
@@ -65,7 +64,7 @@ export class UserProfilesController {
   }
 
   @Get(':id')
-  async getById(@Param('id') id: string, @Res() res: Response) {
+  async getById(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
     const result = await this.userProfilesService.getById(id);
     const { status } = result;
 
@@ -76,7 +75,7 @@ export class UserProfilesController {
   async updateStatus(
     @CurrentUserId() id: string,
     @Res() res: Response,
-    @Body(new ValidationPipe({ transform: true })) dto: UpdateStatusDTO,
+    @Body() dto: UpdateStatusDTO,
   ) {
     dto.userId = id;
     const result = await this.userProfilesService.updateStatus(dto);
@@ -94,7 +93,7 @@ export class UserProfilesController {
   async updateProfile(
     @CurrentUserId() id: string,
     @Res() res: Response,
-    @Body(new ValidationPipe({ transform: true })) dto: UpdateUserProfileDto,
+    @Body() dto: UpdateUserProfileDto,
   ) {
     dto.id = id;
     const result = await this.userProfilesService.updateUserProfile(dto);
@@ -106,7 +105,7 @@ export class UserProfilesController {
   @GrpcMethod('UserProfilesService', 'GetUserProfiles')
   async getUserProfiles(
     @Res() res: Response,
-    @Body(new ValidationPipe({ transform: true })) dto: { userIds: string[] },
+    @Body() dto: { userIds: string[] },
   ) {
     return await this.userProfilesService.getUserProfiles(dto.userIds);
   }

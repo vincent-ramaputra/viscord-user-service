@@ -1,7 +1,8 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateRelationshipDto } from './create-relationship.dto';
+import { IsEnum, IsInt } from 'class-validator';
 import { RelationshipType } from '../enums/relationship-type.enum';
 
-export class UpdateRelationshipDto extends PartialType(CreateRelationshipDto) {
+export class UpdateRelationshipDto {
+  @IsInt()
+  @IsEnum(RelationshipType)
   type: RelationshipType;
 }

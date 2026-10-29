@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { isUUID } from 'class-validator';
 import { Request } from 'express';
 import { Observable } from 'rxjs';
 import { Public } from 'src/common/decorators/public.decorator';
@@ -25,7 +26,12 @@ export class AuthGuard implements CanActivate {
 
     if (isPublic) return true;
 
-    if (!context.switchToHttp().getRequest<Request>().header('X-User-Id')) {
+    const userId = context
+      .switchToHttp()
+      .getRequest<Request>()
+      .header('X-User-Id');
+
+    if (!userId || !isUUID(userId)) {
       throw new UnauthorizedException();
     }
 

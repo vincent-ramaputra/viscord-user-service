@@ -43,14 +43,6 @@ export class RelationshipsService {
     userId: string,
     dto: CreateRelationshipDto,
   ): Promise<Result<RelationshipResponseDTO>> {
-    if (!userId || userId.length == 0) {
-      return {
-        status: HttpStatus.UNAUTHORIZED,
-        message: 'Unauthorized',
-        data: null,
-      };
-    }
-
     const recipientProfileResponse =
       await this.userProfilesService.getProfileByUsername(dto.username);
 
@@ -246,22 +238,6 @@ export class RelationshipsService {
     id: string,
     dto: UpdateRelationshipDto,
   ): Promise<Result<null>> {
-    if (!id || id.length === 0) {
-      return {
-        status: HttpStatus.BAD_REQUEST,
-        message: 'Invalid id',
-        data: null,
-      };
-    }
-
-    if (!userId || userId.length === 0) {
-      return {
-        status: HttpStatus.UNAUTHORIZED,
-        message: 'Unauthorized',
-        data: null,
-      };
-    }
-
     const relationship: Relationship =
       await this.relationshipRepository.findOneBy({ id: id });
 
@@ -297,14 +273,6 @@ export class RelationshipsService {
     userId: string,
     blockedUserId: string,
   ): Promise<Result<null>> {
-    if (!blockedUserId || blockedUserId.length === 0) {
-      return {
-        status: HttpStatus.BAD_REQUEST,
-        message: 'Invalid id',
-        data: null,
-      };
-    }
-
     const rel = await this.relationshipRepository.findOne({
       where: [
         { senderId: userId, recipientId: blockedUserId },
@@ -426,21 +394,6 @@ export class RelationshipsService {
   }
 
   async remove(userId: string, id: string): Promise<Result<null>> {
-    if (!userId || userId.length == 0) {
-      return {
-        status: HttpStatus.UNAUTHORIZED,
-        message: 'Unauthorized',
-        data: null,
-      };
-    }
-
-    if (!id || id.length === 0) {
-      return {
-        status: HttpStatus.BAD_REQUEST,
-        message: 'Invalid id',
-        data: null,
-      };
-    }
     let relationship: Relationship;
     try {
       relationship = await this.relationshipRepository.findOneBy({ id: id });
