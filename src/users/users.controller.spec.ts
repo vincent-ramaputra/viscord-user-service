@@ -8,6 +8,9 @@ import * as request from 'supertest';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from 'src/common/guards/auth/auth.guard';
 
+const ME = '3f2b8c1e-9d4a-4e6b-8c2f-1a5d7e9b0c34';
+const MISSING = '9a7c2d4e-1b3f-4c5a-8d6e-0f1a2b3c4d5e';
+
 describe('UsersController', () => {
   let app: INestApplication;
   let controller: UsersController;
@@ -34,7 +37,7 @@ describe('UsersController', () => {
   afterEach(() => jest.resetAllMocks());
 
   it('GET /users/current returns the user without status in the body', async () => {
-    const user = { id: 'me', email: 'me@viscord.app' };
+    const user = { id: ME, email: 'me@viscord.app' };
     userService.getById.mockResolvedValueOnce({
       status: HttpStatus.OK,
       data: user,
@@ -43,10 +46,10 @@ describe('UsersController', () => {
 
     const result = await request(app.getHttpServer())
       .get('/users/current')
-      .set('X-User-Id', 'me')
+      .set('X-User-Id', ME)
       .expect(HttpStatus.OK);
 
-    expect(userService.getById).toHaveBeenCalledWith('me');
+    expect(userService.getById).toHaveBeenCalledWith(ME);
     expect(result.body).toEqual({ message: 'User data retrieved', data: user });
   });
 
@@ -59,7 +62,7 @@ describe('UsersController', () => {
 
     const result = await request(app.getHttpServer())
       .get('/users/current')
-      .set('X-User-Id', 'missing')
+      .set('X-User-Id', MISSING)
       .expect(HttpStatus.NOT_FOUND);
 
     expect(result.body).toEqual({ message: 'User not found', data: null });
@@ -76,14 +79,14 @@ describe('UsersController', () => {
   it('GetCurrentUser (gRPC) returns the full result including status', async () => {
     const serviceResult = {
       status: HttpStatus.OK,
-      data: { id: 'me', email: 'me@viscord.app' },
+      data: { id: ME, email: 'me@viscord.app' },
       message: 'User data retrieved',
     } as Result<UserResponseDTO>;
     userService.getById.mockResolvedValueOnce(serviceResult);
 
-    const result = await controller.getCurrentUserGRPC({ userId: 'me' });
+    const result = await controller.getCurrentUserGRPC({ userId: ME });
 
-    expect(userService.getById).toHaveBeenCalledWith('me');
+    expect(userService.getById).toHaveBeenCalledWith(ME);
     expect(result).toEqual(serviceResult);
   });
 });

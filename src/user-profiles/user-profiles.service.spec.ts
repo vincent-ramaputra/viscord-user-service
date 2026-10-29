@@ -7,6 +7,8 @@ import { StorageService } from 'src/storage/storage.service';
 import { RelationshipsService } from 'src/relationships/relationships.service';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
 import { HttpStatus } from '@nestjs/common';
+import { UpdateUsernameDTO } from './dto/update-username.dto';
+import { USERNAME_TAKEN_MESSAGE } from './domain/username';
 
 const MOCK_AVATAR_URLS = [
   'https://cdn.com/avatars/avatar-1.png',
@@ -29,7 +31,7 @@ function makeDto(
 describe('UserProfilesService', () => {
   let service: UserProfilesService;
   let userProfilesRepository: jest.Mocked<
-    Pick<Repository<UserProfile>, 'findOneBy' | 'save'>
+    Pick<Repository<UserProfile>, 'findOneBy' | 'findOne' | 'save' | 'update'>
   >;
   let storageService: jest.Mocked<
     Pick<StorageService, 'getFiles' | 'toPublicURL'>
@@ -38,7 +40,9 @@ describe('UserProfilesService', () => {
   beforeAll(async () => {
     userProfilesRepository = {
       findOneBy: jest.fn(),
+      findOne: jest.fn(),
       save: jest.fn(),
+      update: jest.fn(),
     };
     storageService = {
       getFiles: jest.fn(),
@@ -68,47 +72,6 @@ describe('UserProfilesService', () => {
   });
 
   describe('create', () => {
-    describe('Data validation', () => {
-      it('Should return 400 when id is empty string', async () => {
-        const dto = makeDto({ id: '' });
-
-        const result = await service.create(dto);
-
-        expect(result.status).toBe(HttpStatus.BAD_REQUEST);
-        expect(result.message).toBe('User id is empty');
-        expect(userProfilesRepository.save).not.toHaveBeenCalled();
-      });
-
-      it('Should return 400 when id is null', async () => {
-        const dto = makeDto({ id: null });
-
-        const result = await service.create(dto);
-
-        expect(result.status).toBe(HttpStatus.BAD_REQUEST);
-        expect(result.message).toBe('User id is empty');
-        expect(userProfilesRepository.save).not.toHaveBeenCalled();
-      });
-
-      it('Should return 400 when display name is empty string', async () => {
-        const dto = makeDto({ displayName: '' });
-
-        const result = await service.create(dto);
-
-        expect(result.status).toBe(HttpStatus.BAD_REQUEST);
-        expect(result.message).toBe('Display name must be filled');
-        expect(userProfilesRepository.save).not.toHaveBeenCalled();
-      });
-
-      it('Should return 400 when display name is null', async () => {
-        const dto = makeDto({ displayName: null });
-        const result = await service.create(dto);
-
-        expect(result.status).toBe(HttpStatus.BAD_REQUEST);
-        expect(result.message).toBe('Display name must be filled');
-        expect(userProfilesRepository.save).not.toHaveBeenCalled();
-      });
-    });
-
     describe('Username uniqueness', () => {
       it('Should return 400 when username is taken', async () => {
         const dto = makeDto();
@@ -159,5 +122,87 @@ describe('UserProfilesService', () => {
         expect(result.data.username).toBe(dto.username.toLowerCase());
       });
     });
+  });
+
+  describe('updateUsername', () => {
+    const makeUsernameDto = (username: string) => {
+      const dto = new UpdateUsernameDTO();
+      dto.username = username;
+      return dto;
+    };
+
+    it('Should save the username for the given user and return 200', async () => {
+      const result = await service.updateUsername(
+        'uuid-001',
+        makeUsernameDto('newname'),
+      );
+
+      expect(userProfilesRepository.update).toHaveBeenCalledWith('uuid-001', {
+        username: 'newname',
+      });
+      expect(result.status).toBe(HttpStatus.OK);
+    });
+
+    it('Should return 400 when the username is taken', async () => {
+      const error = new QueryFailedError('', [], new Error());
+      (error as any).code = '23505';
+      userProfilesRepository.update.mockRejectedValue(error);
+
+      const result = await service.updateUsername(
+        'uuid-001',
+        makeUsernameDto('taken'),
+      );
+
+      expect(result.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(result.message).toBe(USERNAME_TAKEN_MESSAGE);
+      expect(result.data).toBeNull();
+    });
+
+    // Same convention as create: only the unique violation is handled, anything else is rethrown.
+    it('Should rethrow other database errors instead of reporting success', async () => {
+      const error = new Error('connection terminated');
+      userProfilesRepository.update.mockRejectedValue(error);
+
+      await expect(
+        service.updateUsername('uuid-001', makeUsernameDto('newname')),
+      ).rejects.toThrow(error);
+    });
+  });
+
+  describe('getProfileByUsername', () => {
+    it('Should query by the lowercased username', async () => {
+      const profile = new UserProfile();
+      profile.id = 'uuid-001';
+      profile.username = 'vincent';
+      profile.defaultAvatarURL = 'avatar-1.png';
+      userProfilesRepository.findOne.mockResolvedValue(profile);
+
+      const result = await service.getProfileByUsername('Vincent');
+
+      expect(userProfilesRepository.findOne).toHaveBeenCalledWith({
+        where: { username: 'vincent' },
+      });
+      expect(result.status).toBe(HttpStatus.OK);
+      expect(result.data.username).toBe('vincent');
+    });
+
+    it('Should return 400 when no profile has that username', async () => {
+      userProfilesRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.getProfileByUsername('nobody');
+
+      expect(result.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(result.message).toBe('User not found');
+    });
+
+    it.each(['', undefined])(
+      'Should return 400 without querying when the username is %p',
+      async (username) => {
+        const result = await service.getProfileByUsername(username);
+
+        expect(result.status).toBe(HttpStatus.BAD_REQUEST);
+        expect(userProfilesRepository.findOne).not.toHaveBeenCalled();
+      },
+    );
   });
 });

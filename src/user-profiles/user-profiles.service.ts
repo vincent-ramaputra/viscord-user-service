@@ -1,11 +1,9 @@
 import {
-  Body,
   forwardRef,
   HttpStatus,
   Inject,
   Injectable,
   Logger,
-  ValidationPipe,
 } from '@nestjs/common';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
 import { UserProfile } from './entities/user-profile.entity';
@@ -19,7 +17,7 @@ import {
 import { UserProfileResponseDTO } from './dto/user-profile-response.dto';
 import { UpdateStatusDTO } from 'src/users/dto/update-status.dto';
 import { StorageService } from 'src/storage/storage.service';
-import { UpdateUsernameDTO } from 'src/users/dto/update-username.dto';
+import { UpdateUsernameDTO } from 'src/user-profiles/dto/update-username.dto';
 import {
   ClientProxy,
   ClientProxyFactory,
@@ -31,6 +29,7 @@ import { UserStatus } from './enums/user-status.enum';
 import { RelationshipsService } from 'src/relationships/relationships.service';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { StoragePaths } from 'src/storage/storage.paths';
+import { normalizeUsername, USERNAME_TAKEN_MESSAGE } from './domain/username';
 
 @Injectable()
 export class UserProfilesService {
@@ -56,15 +55,6 @@ export class UserProfilesService {
   async create(
     dto: CreateUserProfileDto,
   ): Promise<Result<UserProfileResponseDTO>> {
-    const validationMessage = dto.validate();
-    if (validationMessage) {
-      return {
-        status: HttpStatus.BAD_REQUEST,
-        message: validationMessage,
-        data: null,
-      };
-    }
-
     const defaultAvatarURLs: string[] = await this.storageService.getFiles(
       StoragePaths.DEFAULT_AVATAR,
     );
@@ -72,7 +62,7 @@ export class UserProfilesService {
 
     const userProfile = toUserProfileEntity(dto);
     userProfile.defaultAvatarURL = defaultAvatarURLs[randomIndex];
-    userProfile.username = userProfile.username.toLowerCase();
+    userProfile.username = normalizeUsername(userProfile.username);
 
     try {
       await this.userProfileRepository.save(userProfile);
@@ -83,7 +73,7 @@ export class UserProfilesService {
       ) {
         return {
           status: HttpStatus.BAD_REQUEST,
-          message: 'This username is already used',
+          message: USERNAME_TAKEN_MESSAGE,
           data: null,
         };
       }
@@ -155,9 +145,7 @@ export class UserProfilesService {
     }
   }
 
-  async updateStatus(
-    @Body(new ValidationPipe({ transform: true })) dto: UpdateStatusDTO,
-  ): Promise<Result<null>> {
+  async updateStatus(dto: UpdateStatusDTO): Promise<Result<null>> {
     if (!dto.userId || dto.userId.length == 0) {
       return {
         status: HttpStatus.BAD_REQUEST,
@@ -233,16 +221,18 @@ export class UserProfilesService {
     id: string,
     dto: UpdateUsernameDTO,
   ): Promise<Result<any>> {
-    const validateResult = dto.validate();
-    if (validateResult) {
-      return {
-        status: HttpStatus.BAD_REQUEST,
-        message: validateResult,
-        data: null,
-      };
+    try {
+      await this.userProfileRepository.update(id, { username: dto.username });
+    } catch (error) {
+      if ((error as any).code === '23505') {
+        return {
+          status: HttpStatus.BAD_REQUEST,
+          data: null,
+          message: USERNAME_TAKEN_MESSAGE,
+        };
+      }
+      throw error;
     }
-
-    await this.userProfileRepository.update(id, { username: dto.username });
 
     return {
       status: HttpStatus.OK,
@@ -264,7 +254,7 @@ export class UserProfilesService {
 
     try {
       const user: UserProfile = await this.userProfileRepository.findOne({
-        where: { username: username },
+        where: { username: normalizeUsername(username) },
       });
 
       if (!user) {

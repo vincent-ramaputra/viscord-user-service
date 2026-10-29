@@ -6,8 +6,8 @@ import {
   Param,
   Delete,
   Res,
-  ValidationPipe,
   Put,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { RelationshipsService } from './relationships.service';
 import { CreateRelationshipDto } from './dto/create-relationship.dto';
@@ -24,8 +24,7 @@ export class RelationshipsController {
   @Post()
   async create(
     @CurrentUserId() senderId: string,
-    @Body(new ValidationPipe({ transform: true }))
-    createDTO: CreateRelationshipDto,
+    @Body() createDTO: CreateRelationshipDto,
     @Res() res: Response,
   ) {
     const result = await this.relationshipsService.create(senderId, createDTO);
@@ -51,7 +50,7 @@ export class RelationshipsController {
   @Post('block/:userId')
   async blockUser(
     @CurrentUserId() userId: string,
-    @Param('userId') blockedUserId: string,
+    @Param('userId', ParseUUIDPipe) blockedUserId: string,
     @Res() res: Response,
   ) {
     const result = await this.relationshipsService.blockUser(
@@ -66,9 +65,8 @@ export class RelationshipsController {
   @Put(':id')
   async update(
     @CurrentUserId() userId: string,
-    @Param('id') id: string,
-    @Body(new ValidationPipe({ transform: true }))
-    updateRelationshipDto: UpdateRelationshipDto,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateRelationshipDto: UpdateRelationshipDto,
     @Res() res: Response,
   ) {
     const result = await this.relationshipsService.update(
@@ -84,7 +82,7 @@ export class RelationshipsController {
   @Delete(':id')
   async remove(
     @CurrentUserId() userId: string,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
   ) {
     const result = await this.relationshipsService.remove(userId, id);

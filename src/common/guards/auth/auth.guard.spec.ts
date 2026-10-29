@@ -12,6 +12,8 @@ import * as request from 'supertest';
 import { Public } from 'src/common/decorators/public.decorator';
 import { AuthGuard } from './auth.guard';
 
+const USER_ID = '3f2b8c1e-9d4a-4e6b-8c2f-1a5d7e9b0c34';
+
 describe('AuthGuard', () => {
   describe('canActivate', () => {
     let guard: AuthGuard;
@@ -50,7 +52,7 @@ describe('AuthGuard', () => {
     });
 
     it('allows requests with an X-User-Id header', () => {
-      header.mockReturnValue('user-1');
+      header.mockReturnValue(USER_ID);
 
       expect(guard.canActivate(createContext('http'))).toBe(true);
       expect(header).toHaveBeenCalledWith('X-User-Id');
@@ -58,6 +60,14 @@ describe('AuthGuard', () => {
 
     it('throws UnauthorizedException when X-User-Id is missing', () => {
       header.mockReturnValue(undefined);
+
+      expect(() => guard.canActivate(createContext('http'))).toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('throws UnauthorizedException when X-User-Id is not a UUID', () => {
+      header.mockReturnValue('user-1');
 
       expect(() => guard.canActivate(createContext('http'))).toThrow(
         UnauthorizedException,
@@ -118,12 +128,19 @@ describe('AuthGuard', () => {
         .expect(HttpStatus.UNAUTHORIZED);
     });
 
+    it('returns 401 when X-User-Id is not a UUID', async () => {
+      await request(app.getHttpServer())
+        .get('/test/private')
+        .set('X-User-Id', 'abc')
+        .expect(HttpStatus.UNAUTHORIZED);
+    });
+
     it.each(['X-User-Id', 'x-user-id'])(
       'accepts the header sent as %s',
       async (name) => {
         await request(app.getHttpServer())
           .get('/test/private')
-          .set(name, 'user-1')
+          .set(name, USER_ID)
           .expect(HttpStatus.OK);
       },
     );
