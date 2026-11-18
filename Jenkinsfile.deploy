@@ -1,0 +1,64 @@
+pipeline {
+    agent { label 'docker' }
+    
+    parameters{
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: '',
+            description: 'Existing image tag, e.g. sha-a1b2c34'
+        )
+    }
+
+    options {
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+        timeout(time: 10, unit: 'MINUTES')
+    }
+
+    stages {
+        stage('Validate image tag') {
+            steps {
+                script {
+                    if (!(params.IMAGE_TAG ==~ /sha-[0-9a-f]{7}/)) {
+                        error "IMAGE_TAG must look like sha-a1b2c34, got: ${params.IMAGE_TAG}"
+                    }
+                }
+            }
+        }
+        stage('Checkout infra repo') {
+            steps {
+                git branch: 'jenkins-lab',
+                credentialsId: 'viscord-infra-repo-token',
+                url: 'https://github.com/vincent-ramaputra/viscord-infra'
+            }
+        }
+        stage ('Update image tag') {
+            steps {
+                sh '''
+                    cd k8s/services/user-service/overlays/dev
+                    sed -i "s/newTag: .*/newTag: $IMAGE_TAG/" kustomization.yaml
+                '''
+            }
+        }
+        stage('Commit and push to infra repo') {
+            steps {
+                withCredentials([gitUsernamePassword(credentialsId: 'viscord-infra-repo-token')]) {
+                    sh '''
+                        git config user.name "ci-bot"
+                        git config user.email "ci@bot"
+                        git add k8s/services/user-service/overlays/dev/kustomization.yaml
+                        git diff --cached --quiet && { echo "Already at $IMAGE_TAG"; exit 0; }
+                        git commit -m "update: updated user-service image tag to $IMAGE_TAG"
+                        git push origin HEAD:jenkins-lab
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
