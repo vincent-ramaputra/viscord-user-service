@@ -46,6 +46,19 @@ pipeline {
                 dockerBuildPush(image: 'registry:5000/viscord-user-service', tag: env.IMAGE_TAG)
             }
         }
+        stage('Trigger dev deployment') {
+            when {
+                anyOf {
+                    branch 'develop'
+                    branch 'ci/jenkins'
+                }
+            }
+            steps {
+                build job: '/deploy/user-service-dev',
+                    parameters: [string(name: 'IMAGE_TAG', value: env.IMAGE_TAG)],
+                    wait: false
+            }
+        }
     }
 
     post {
