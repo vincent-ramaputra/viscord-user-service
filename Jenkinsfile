@@ -54,7 +54,7 @@ pipeline {
                 }
             }
             steps {
-                build job: '/deploy/user-service-dev',
+                build job: '/viscord-deploy/user-service-dev',
                     parameters: [string(name: 'IMAGE_TAG', value: env.IMAGE_TAG)],
                     wait: false
             }
