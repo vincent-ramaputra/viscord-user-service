@@ -1,3 +1,4 @@
+@Library('lab-lib') _
 pipeline {
     agent { label 'docker' }
 
@@ -42,17 +43,7 @@ pipeline {
                 script {
                     env.IMAGE_TAG = "sha-${env.GIT_COMMIT.take(7)}"
                 }
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
-                withCredentials([usernamePassword(
-                    credentialsId: 'registry',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASSWORD'
-                )]) {
-                    sh '''
-                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin registry:5000
-                        docker push "$IMAGE_NAME:$IMAGE_TAG"
-                    '''
-                }
+                dockerBuildPush(image: 'registry:5000/viscord-user-service', tag: env.IMAGE_TAG)
             }
         }
     }
