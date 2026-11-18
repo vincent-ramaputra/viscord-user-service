@@ -44,7 +44,7 @@ pipeline {
                 }
                 sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
                 withCredentials([usernamePassword(
-                    credentialsId: 'lab-registry',
+                    credentialsId: 'registry',
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASSWORD'
                 )]) {
